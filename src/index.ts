@@ -7,6 +7,16 @@ import { config } from "./config.js";
 const app = express();
 app.use(express.json());
 
+// Health check endpoint for Alpic
+app.get("/", (req: Request, res: Response) => {
+  res.json({ 
+    status: "ok", 
+    service: "MCP Server Template",
+    version: "0.0.1",
+    endpoints: ["/mcp"]
+  });
+});
+
 app.post("/mcp", async (req: Request, res: Response) => {
   try {
     const transport = new StreamableHTTPServerTransport({
