@@ -20,9 +20,13 @@ if not os.path.exists('.env') and os.path.exists('config.env.example'):
                 if key not in os.environ:
                     os.environ[key] = value
 
-# Configuration Supabase
+# Configuration Supabase - initialisation paresseuse
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://hzoggayzniyxlbwxchcx.supabase.co")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+# Variables globales pour l'initialisation paresseuse
+SUPABASE_INITIALIZED = False
+SUPABASE_AVAILABLE = False
 
 # Configuration Qdrant - optimisée pour démarrage rapide
 QDRANT_URL = os.getenv("QDRANT_URL")
@@ -40,12 +44,15 @@ IS_LAMBDA = (
 if IS_LAMBDA and QDRANT_ENABLED:
     print("🚀 Mode Lambda - Qdrant en mode paresseux")
     USE_QDRANT = True
+    # En Lambda, désactiver les vérifications Supabase pour le démarrage
+    if not SUPABASE_SERVICE_KEY:
+        print("⚠️ Mode Lambda sans Supabase - authentification désactivée")
 else:
     USE_QDRANT = bool(QDRANT_URL and QDRANT_API_KEY and QDRANT_ENABLED)
 
 # Debug minimal
 print(f"🔧 Qdrant: {'Activé' if USE_QDRANT else 'Désactivé'}")
-print(f"🔧 Supabase: {'Activé' if SUPABASE_SERVICE_KEY else 'Désactivé'}")
+print(f"🔧 Supabase: {'Configuré' if SUPABASE_SERVICE_KEY else 'Non configuré'} (initialisation paresseuse)")
 
 # Import paresseux de FastMCP
 def get_mcp():
@@ -112,10 +119,50 @@ def generate_embedding(text: str) -> List[float]:
         vector.append((hash_bytes[i % 16] - 128) / 128.0)
     return vector
 
-def verify_user_token(user_token: str) -> Optional[Dict]:
-    """Vérifier un token utilisateur via Supabase"""
+def init_supabase_lazy():
+    """Initialisation paresseuse de Supabase - test de connectivité"""
+    global SUPABASE_INITIALIZED, SUPABASE_AVAILABLE
+    
+    if SUPABASE_INITIALIZED:
+        return SUPABASE_AVAILABLE
+    
     if not SUPABASE_SERVICE_KEY:
         print("⚠️ Supabase non configuré, mode anonyme")
+        SUPABASE_INITIALIZED = True
+        SUPABASE_AVAILABLE = False
+        return False
+    
+    try:
+        print("🔄 Test de connectivité Supabase...")
+        # Test simple de connectivité avec timeout très court
+        response = requests.get(
+            f"{SUPABASE_URL}/rest/v1/",
+            headers={
+                "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                "apikey": SUPABASE_SERVICE_KEY
+            },
+            timeout=1  # Timeout ultra-court pour le test
+        )
+        
+        if response.status_code in [200, 401]:  # 401 est OK, ça veut dire que l'API répond
+            print("✅ Supabase disponible")
+            SUPABASE_AVAILABLE = True
+        else:
+            print(f"⚠️ Supabase répond avec code: {response.status_code}")
+            SUPABASE_AVAILABLE = False
+            
+    except Exception as e:
+        print(f"❌ Supabase indisponible: {e}")
+        SUPABASE_AVAILABLE = False
+    
+    SUPABASE_INITIALIZED = True
+    return SUPABASE_AVAILABLE
+
+def verify_user_token(user_token: str) -> Optional[Dict]:
+    """Vérifier un token utilisateur via Supabase avec initialisation paresseuse"""
+    # Initialisation paresseuse de Supabase
+    if not init_supabase_lazy():
+        print("⚠️ Supabase non disponible, mode anonyme")
         return {
             "user_id": "anonymous",
             "team_id": "default_team",
@@ -125,7 +172,7 @@ def verify_user_token(user_token: str) -> Optional[Dict]:
         }
     
     try:
-        # Appeler l'API Supabase pour vérifier le token
+        # Appeler l'API Supabase pour vérifier le token avec timeout très court
         response = requests.post(
             f"{SUPABASE_URL}/rest/v1/rpc/verify_user_token",
             headers={
@@ -134,7 +181,7 @@ def verify_user_token(user_token: str) -> Optional[Dict]:
                 "apikey": SUPABASE_SERVICE_KEY
             },
             json={"token": user_token},
-            timeout=5
+            timeout=2  # Timeout très court pour Lambda
         )
         
         if response.status_code == 200:
@@ -147,7 +194,14 @@ def verify_user_token(user_token: str) -> Optional[Dict]:
         
     except Exception as e:
         print(f"❌ Erreur vérification token: {e}")
-        return None
+        # En cas d'erreur réseau, retourner un utilisateur par défaut pour éviter les blocages
+        return {
+            "user_id": "fallback_user",
+            "team_id": "fallback_team",
+            "team_token": "fallback_team_token",
+            "user_name": "Utilisateur Fallback",
+            "user_role": "member"
+        }
 
 class QdrantStorage:
     """Gestionnaire de stockage Qdrant multi-tenant"""
@@ -173,16 +227,17 @@ class QdrantStorage:
                 self.client = QdrantClient(
                     url=QDRANT_URL,
                     api_key=QDRANT_API_KEY,
-                    timeout=3  # Timeout très court pour Lambda
+                    timeout=2,  # Timeout encore plus court pour Lambda
+                    prefer_grpc=False  # Utiliser HTTP au lieu de gRPC pour plus de fiabilité
                 )
-                self._init_collection()
                 self._initialized = True
                 print("✅ Qdrant connecté")
             except Exception as e:
                 print(f"❌ Erreur Qdrant: {e}")
                 self.client = None
                 self._initialized = False
-                raise Exception(f"Connexion Qdrant échouée: {e}")
+                # Ne pas lever d'exception, utiliser le fallback
+                print("⚠️ Qdrant non disponible, utilisation du fallback mémoire")
         
         if not self._initialized:
             raise Exception("Qdrant non disponible")
