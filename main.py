@@ -25,7 +25,7 @@ if not os.path.exists('.env') and os.path.exists('config.env.example'):
 # Configuration Qdrant
 QDRANT_URL = os.getenv("QDRANT_URL")  # Ex: https://your-cluster.qdrant.tech
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")  # Votre clé API Qdrant
-QDRANT_ENABLED = os.getenv("QDRANT_ENABLED", "true").lower() == "true"  # Activé par défaut
+QDRANT_ENABLED = os.getenv("QDRANT_ENABLED", "false").lower() == "true"  # Désactivé par défaut pour éviter les timeouts
 USE_QDRANT = bool(QDRANT_URL and QDRANT_API_KEY and QDRANT_ENABLED)
 
 # Configuration
@@ -215,9 +215,11 @@ def get_storage():
                 print("✅ Qdrant initialisé avec succès")
             except Exception as e:
                 print(f"❌ Erreur initialisation Qdrant: {e}")
-                raise Exception(f"Impossible de se connecter à Qdrant Cloud: {e}")
+                print("⚠️ Fallback vers stockage en mémoire")
+                storage = None
         else:
-            raise Exception("Qdrant Cloud n'est pas configuré. Vérifiez QDRANT_URL, QDRANT_API_KEY et QDRANT_ENABLED")
+            print("📝 Qdrant Cloud désactivé - utilisation du stockage en mémoire")
+            storage = None
     return storage
 
 
@@ -244,10 +246,16 @@ def add_memory(
         tags=tag_list
     )
     
-    # Stocker via Qdrant Cloud uniquement
+    # Stocker via le système de stockage
     storage = get_storage()
-    storage.store_memory(memory, memory_id)
-    message = "Mémoire ajoutée au bucket partagé (Qdrant Cloud)"
+    if storage:
+        # Utiliser Qdrant
+        storage.store_memory(memory, memory_id)
+        message = "Mémoire ajoutée au bucket partagé (Qdrant Cloud)"
+    else:
+        # Utiliser le stockage en mémoire
+        memories[memory_id] = memory
+        message = "Mémoire ajoutée au bucket partagé (mémoire)"
     
     return json.dumps({
         "status": "success",
@@ -265,9 +273,31 @@ def search_memories(
 ) -> str:
     """Rechercher dans le bucket de mémoires partagé"""
     
-    # Rechercher via Qdrant Cloud uniquement
     storage = get_storage()
-    results = storage.search_memories(query, limit)
+    if storage:
+        # Utiliser Qdrant
+        results = storage.search_memories(query, limit)
+    else:
+        # Utiliser le stockage en mémoire
+        scored_memories = []
+        for memory_id, memory in memories.items():
+            similarity = calculate_similarity(query, memory.content)
+            scored_memories.append((similarity, memory_id, memory))
+        
+        # Trier par similarité
+        scored_memories.sort(key=lambda x: x[0], reverse=True)
+        
+        # Formatter les résultats
+        results = []
+        for similarity, memory_id, memory in scored_memories[:limit]:
+            if similarity > 0:  # Seulement les résultats avec une similarité > 0
+                results.append({
+                    "memory_id": memory_id,
+                    "content": memory.content,
+                    "tags": memory.tags,
+                    "timestamp": memory.timestamp,
+                    "similarity_score": round(similarity, 3)
+                })
     
     return json.dumps({
         "status": "success",
@@ -285,18 +315,34 @@ def delete_memory(
 ) -> str:
     """Supprimer une mémoire du bucket partagé"""
     
-    # Supprimer via Qdrant Cloud uniquement
     storage = get_storage()
-    success = storage.delete_memory(memory_id)
-    if success:
+    if storage:
+        # Utiliser Qdrant
+        success = storage.delete_memory(memory_id)
+        if success:
+            return json.dumps({
+                "status": "success",
+                "message": f"Mémoire {memory_id} supprimée du bucket (Qdrant Cloud)"
+            })
+        else:
+            return json.dumps({
+                "status": "error",
+                "message": "Erreur lors de la suppression"
+            })
+    else:
+        # Utiliser le stockage en mémoire
+        if memory_id not in memories:
+            return json.dumps({
+                "status": "error",
+                "message": "Mémoire non trouvée"
+            })
+        
+        # Supprimer la mémoire
+        del memories[memory_id]
+        
         return json.dumps({
             "status": "success",
-            "message": f"Mémoire {memory_id} supprimée du bucket (Qdrant Cloud)"
-        })
-    else:
-        return json.dumps({
-            "status": "error",
-            "message": "Erreur lors de la suppression"
+            "message": f"Mémoire {memory_id} supprimée du bucket (mémoire)"
         })
 
 @mcp.tool(
@@ -306,9 +352,29 @@ def delete_memory(
 def list_memories() -> str:
     """Lister toutes les mémoires du bucket partagé"""
     
-    # Lister via Qdrant Cloud uniquement
     storage = get_storage()
-    all_memories = storage.list_memories()
+    if storage:
+        # Utiliser Qdrant
+        all_memories = storage.list_memories()
+    else:
+        # Utiliser le stockage en mémoire
+        if not memories:
+            return json.dumps({
+                "status": "success",
+                "message": "Aucune mémoire dans le bucket",
+                "total": 0,
+                "memories": []
+            })
+        
+        # Formatter toutes les mémoires
+        all_memories = []
+        for memory_id, memory in memories.items():
+            all_memories.append({
+                "memory_id": memory_id,
+                "content": memory.content,
+                "tags": memory.tags,
+                "timestamp": memory.timestamp
+            })
     
     return json.dumps({
         "status": "success",
