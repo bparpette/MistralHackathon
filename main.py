@@ -45,4 +45,4 @@ def greet_user(
 
 
 if __name__ == "__main__":
-    mcp.run(transport="streamablehttp")
+    mcp.run(transport="streamable-http")
