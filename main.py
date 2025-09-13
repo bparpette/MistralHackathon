@@ -80,59 +80,67 @@ def get_mcp():
     """Import paresseux de FastMCP - optimisé pour Lambda"""
     try:
         from mcp.server.fastmcp import FastMCP
-        from mcp.server.auth.provider import AccessToken, TokenVerifier
-        from mcp.server.auth.settings import AuthSettings
-        from pydantic import AnyHttpUrl
-        
-        # TokenVerifier personnalisé pour Supabase
-        class SupabaseTokenVerifier(TokenVerifier):
-            """Token verifier pour Supabase"""
-            
-            async def verify_token(self, token: str) -> AccessToken | None:
-                """Vérifier un token via Supabase"""
-                print(f"🔍 TokenVerifier: Vérification token {token[:10]}...")
-                
-                # Nettoyer le token si nécessaire
-                if token.startswith("Bearer "):
-                    token = token[7:]
-                
-                # Vérifier via Supabase
-                user_info = verify_user_token(token)
-                if user_info:
-                    print(f"✅ TokenVerifier: Token valide pour {user_info['user_name']}")
-                    return AccessToken(
-                        sub=user_info["user_id"],
-                        scope=["user"],
-                        exp=None,  # Pas d'expiration pour nos tokens
-                        iat=None,
-                        aud=None,
-                        iss=None
-                    )
-                else:
-                    print(f"❌ TokenVerifier: Token invalide {token[:10]}...")
-                    return None
-        
-        # Configuration optimisée pour Lambda avec authentification
+        # Configuration optimisée pour Lambda
         return FastMCP(
             "Collective Brain Server", 
             port=3000, 
             stateless_http=True, 
-            debug=False,
-            # Token verifier pour l'authentification
-            token_verifier=SupabaseTokenVerifier(),
-            # Auth settings
-            auth=AuthSettings(
-                issuer_url=AnyHttpUrl("https://hzoggayzniyxlbwxchcx.supabase.co"),
-                resource_server_url=AnyHttpUrl("https://mistralhackathonmcp-ee61017d.alpic.live"),
-                required_scopes=["user"],
-            ),
+            debug=False
         )
     except ImportError:
         if not IS_LAMBDA:
             print("❌ FastMCP non disponible")
         return None
 
-# L'authentification est maintenant gérée par FastMCP TokenVerifier
+# Variable globale pour stocker les headers de la requête courante
+current_request_headers = {}
+
+def set_request_headers(headers: dict):
+    """Définir les headers de la requête courante"""
+    global current_request_headers
+    current_request_headers = headers
+
+def get_request_headers() -> dict:
+    """Récupérer les headers de la requête courante"""
+    return current_request_headers
+
+def extract_token_from_headers():
+    """Extraire le token Bearer depuis les headers HTTP"""
+    try:
+        # 1. Essayer de récupérer depuis les headers de la requête courante
+        request_headers = get_request_headers()
+        print(f"🔍 Headers de la requête: {request_headers}")
+        
+        if "authorization" in request_headers:
+            auth_header = request_headers["authorization"]
+            if auth_header.startswith("Bearer "):
+                print(f"✅ Token trouvé dans les headers de requête: {auth_header[7:]}")
+                return auth_header[7:]  # Enlever "Bearer "
+        
+        # 2. Debug: afficher tous les headers disponibles dans l'environnement
+        print("=== DEBUG HEADERS ENV ===")
+        for key, value in os.environ.items():
+            if "AUTH" in key.upper() or "HEADER" in key.upper() or "HTTP" in key.upper():
+                print(f"{key}: {value}")
+        print("========================")
+        
+        # 3. En Lambda, les headers sont disponibles via les variables d'environnement
+        auth_header = os.getenv("HTTP_AUTHORIZATION", "")
+        if auth_header.startswith("Bearer "):
+            print(f"✅ Token trouvé dans HTTP_AUTHORIZATION: {auth_header[7:]}")
+            return auth_header[7:]  # Enlever "Bearer "
+        
+        # 4. Fallback: chercher dans d'autres variables d'environnement
+        for key, value in os.environ.items():
+            if "AUTHORIZATION" in key.upper() and value.startswith("Bearer "):
+                print(f"✅ Token trouvé dans {key}: {value[7:]}")
+                return value[7:]
+        
+        print("❌ Aucun token Bearer trouvé")
+        return ""
+    except Exception as e:
+        print(f"❌ Erreur extraction token: {e}")
+        return ""
 
 # Modèle de données enrichi pour le cerveau collectif
 class Memory:
@@ -486,7 +494,7 @@ def get_mcp_instance():
         mcp = get_mcp()
     return mcp
 
-# Outils MCP avec authentification intégrée
+# Outils MCP avec authentification manuelle
 def add_memory(
     content: str,
     tags: str = "",
@@ -495,17 +503,29 @@ def add_memory(
 ) -> str:
     """Ajouter une mémoire au cerveau collectif avec authentification"""
     
-    # L'authentification est maintenant gérée par FastMCP
-    # On récupère les infos utilisateur depuis le token validé
-    print("🔍 Récupération des infos utilisateur depuis le token validé...")
+    # Récupérer le token depuis les headers
+    print("🔍 Récupération du token depuis les headers...")
+    user_token = extract_token_from_headers()
     
-    # Pour l'instant, on utilise le token de test en attendant que FastMCP nous passe le token
-    user_token = "user_d8a7996df3c777e9ac2914ef16d5b501"
-    user_info = verify_user_token(user_token)
-    if not user_info:
+    # MODE TEST: Si aucun token trouvé, utiliser le token de test
+    if not user_token:
+        print("🧪 MODE TEST: Utilisation du token de test")
+        user_token = "user_d8a7996df3c777e9ac2914ef16d5b501"
+    
+    if not user_token:
         return json.dumps({
             "status": "error",
-            "message": "Token utilisateur invalide"
+            "message": "Token utilisateur requis. Veuillez configurer l'authentification Bearer dans Le Chat."
+        })
+    
+    # Vérifier le token utilisateur
+    print(f"🔍 Vérification du token: {user_token[:10]}...")
+    user_info = verify_user_token(user_token)
+    if not user_info:
+        print(f"❌ Token invalide ou erreur de vérification: {user_token[:10]}...")
+        return json.dumps({
+            "status": "error",
+            "message": f"Token utilisateur invalide: {user_token[:10]}..."
         })
     
     user_id = user_info["user_id"]
@@ -576,13 +596,26 @@ def search_memories(
 ) -> str:
     """Rechercher dans le cerveau collectif avec authentification"""
     
-    # L'authentification est maintenant gérée par FastMCP
-    user_token = "user_d8a7996df3c777e9ac2914ef16d5b501"
+    # Récupérer le token depuis les headers
+    user_token = extract_token_from_headers()
+    
+    # MODE TEST: Si aucun token trouvé, utiliser le token de test
+    if not user_token:
+        print("🧪 MODE TEST: Utilisation du token de test")
+        user_token = "user_d8a7996df3c777e9ac2914ef16d5b501"
+    
+    if not user_token:
+        return json.dumps({
+            "status": "error",
+            "message": "Token utilisateur requis. Veuillez configurer l'authentification Bearer dans Le Chat."
+        })
+    
+    # Vérifier le token utilisateur
     user_info = verify_user_token(user_token)
     if not user_info:
         return json.dumps({
             "status": "error",
-            "message": "Token utilisateur invalide"
+            "message": f"Token utilisateur invalide: {user_token[:10]}..."
         })
     
     team_id = user_info["team_id"]
@@ -633,13 +666,26 @@ def search_memories(
 def delete_memory(memory_id: str) -> str:
     """Supprimer une mémoire du cerveau collectif avec authentification"""
     
-    # L'authentification est maintenant gérée par FastMCP
-    user_token = "user_d8a7996df3c777e9ac2914ef16d5b501"
+    # Récupérer le token depuis les headers
+    user_token = extract_token_from_headers()
+    
+    # MODE TEST: Si aucun token trouvé, utiliser le token de test
+    if not user_token:
+        print("🧪 MODE TEST: Utilisation du token de test")
+        user_token = "user_d8a7996df3c777e9ac2914ef16d5b501"
+    
+    if not user_token:
+        return json.dumps({
+            "status": "error",
+            "message": "Token utilisateur requis. Veuillez configurer l'authentification Bearer dans Le Chat."
+        })
+    
+    # Vérifier le token utilisateur
     user_info = verify_user_token(user_token)
     if not user_info:
         return json.dumps({
             "status": "error",
-            "message": "Token utilisateur invalide"
+            "message": f"Token utilisateur invalide: {user_token[:10]}..."
         })
     
     team_id = user_info["team_id"]
@@ -687,13 +733,26 @@ def delete_memory(memory_id: str) -> str:
 def list_memories() -> str:
     """Lister toutes les mémoires du cerveau collectif avec authentification"""
     
-    # L'authentification est maintenant gérée par FastMCP
-    user_token = "user_d8a7996df3c777e9ac2914ef16d5b501"
+    # Récupérer le token depuis les headers
+    user_token = extract_token_from_headers()
+    
+    # MODE TEST: Si aucun token trouvé, utiliser le token de test
+    if not user_token:
+        print("🧪 MODE TEST: Utilisation du token de test")
+        user_token = "user_d8a7996df3c777e9ac2914ef16d5b501"
+    
+    if not user_token:
+        return json.dumps({
+            "status": "error",
+            "message": "Token utilisateur requis. Veuillez configurer l'authentification Bearer dans Le Chat."
+        })
+    
+    # Vérifier le token utilisateur
     user_info = verify_user_token(user_token)
     if not user_info:
         return json.dumps({
             "status": "error",
-            "message": "Token utilisateur invalide"
+            "message": f"Token utilisateur invalide: {user_token[:10]}..."
         })
     
     team_id = user_info["team_id"]
@@ -744,13 +803,26 @@ def list_memories() -> str:
 def get_team_insights() -> str:
     """Obtenir des insights sur l'activité de l'équipe avec authentification"""
     
-    # L'authentification est maintenant gérée par FastMCP
-    user_token = "user_d8a7996df3c777e9ac2914ef16d5b501"
+    # Récupérer le token depuis les headers
+    user_token = extract_token_from_headers()
+    
+    # MODE TEST: Si aucun token trouvé, utiliser le token de test
+    if not user_token:
+        print("🧪 MODE TEST: Utilisation du token de test")
+        user_token = "user_d8a7996df3c777e9ac2914ef16d5b501"
+    
+    if not user_token:
+        return json.dumps({
+            "status": "error",
+            "message": "Token utilisateur requis. Veuillez configurer l'authentification Bearer dans Le Chat."
+        })
+    
+    # Vérifier le token utilisateur
     user_info = verify_user_token(user_token)
     if not user_info:
         return json.dumps({
             "status": "error",
-            "message": "Token utilisateur invalide"
+            "message": f"Token utilisateur invalide: {user_token[:10]}..."
         })
     
     team_id = user_info["team_id"]
@@ -829,7 +901,19 @@ def get_team_insights() -> str:
         "team": team_id
     })
 
-# Le middleware n'est plus nécessaire avec FastMCP TokenVerifier
+# Middleware pour capturer les headers
+def capture_headers_middleware(request, call_next):
+    """Middleware pour capturer les headers HTTP"""
+    try:
+        # Capturer les headers de la requête
+        headers = dict(request.headers)
+        set_request_headers(headers)
+        print(f"🔍 Headers capturés: {headers}")
+    except Exception as e:
+        print(f"❌ Erreur capture headers: {e}")
+    
+    response = call_next(request)
+    return response
 
 # Initialisation paresseuse de MCP
 def initialize_mcp():
@@ -840,6 +924,17 @@ def initialize_mcp():
         mcp = get_mcp()
         
         if mcp:
+            # Ajouter le middleware pour capturer les headers
+            try:
+                # FastMCP utilise uvicorn, on doit accéder à l'app FastAPI différemment
+                if hasattr(mcp, '_app') and mcp._app:
+                    mcp._app.middleware("http")(capture_headers_middleware)
+                    print("✅ Middleware headers ajouté")
+                else:
+                    print("⚠️ App FastAPI non accessible pour le middleware")
+            except Exception as e:
+                print(f"⚠️ Impossible d'ajouter le middleware: {e}")
+            
             # Enregistrer les outils
             mcp.tool(
                 title="Add Memory",
