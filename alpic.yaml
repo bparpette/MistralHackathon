@@ -1,0 +1,159 @@
+# Configuration Alpic pour le déploiement du Collective Brain MCP Server
+name: collective-brain-mcp
+version: 1.0.0
+description: "Système de mémoire collective pour équipes - Un cerveau partagé qui permet aux équipes de stocker, rechercher et partager leurs connaissances de manière intelligente."
+
+# Configuration du serveur
+server:
+  port: 3000
+  transport: streamable-http
+  debug: true
+
+# Variables d'environnement
+env:
+  - name: QDRANT_URL
+    description: "URL de votre cluster Qdrant"
+    required: false
+    default: "https://your-cluster.qdrant.tech"
+  
+  - name: QDRANT_API_KEY
+    description: "Clé API Qdrant"
+    required: false
+    default: "your-api-key-here"
+  
+  - name: MISTRAL_API_KEY
+    description: "Clé API Mistral pour les embeddings"
+    required: false
+    default: "your-mistral-api-key"
+  
+  - name: DEFAULT_WORKSPACE
+    description: "Workspace par défaut"
+    required: false
+    default: "startup_ai"
+
+# Outils MCP exposés
+tools:
+  - name: store_memory
+    description: "Stocker une mémoire dans le cerveau collectif de l'équipe"
+    parameters:
+      - name: content
+        type: string
+        description: "Le contenu de la mémoire à stocker"
+        required: true
+      - name: user_id
+        type: string
+        description: "ID de l'utilisateur qui crée la mémoire"
+        required: true
+      - name: workspace_id
+        type: string
+        description: "ID du workspace/équipe"
+        required: true
+      - name: category
+        type: string
+        description: "Catégorie de la mémoire"
+        default: "general"
+      - name: tags
+        type: string
+        description: "Tags séparés par des virgules"
+        default: ""
+      - name: visibility
+        type: string
+        description: "Visibilité: private, team, public"
+        default: "team"
+      - name: importance
+        type: number
+        description: "Niveau d'importance (0-1)"
+        default: 0.5
+
+  - name: search_memories
+    description: "Rechercher dans la mémoire collective de l'équipe"
+    parameters:
+      - name: query
+        type: string
+        description: "Requête de recherche"
+        required: true
+      - name: workspace_id
+        type: string
+        description: "ID du workspace/équipe"
+        required: true
+      - name: user_id
+        type: string
+        description: "ID de l'utilisateur qui recherche"
+        required: true
+      - name: limit
+        type: number
+        description: "Nombre maximum de résultats"
+        default: 5
+      - name: category_filter
+        type: string
+        description: "Filtrer par catégorie"
+        default: ""
+      - name: visibility_filter
+        type: string
+        description: "Filtrer par visibilité"
+        default: ""
+
+  - name: get_team_insights
+    description: "Obtenir des insights sur l'activité de l'équipe"
+    parameters:
+      - name: workspace_id
+        type: string
+        description: "ID du workspace/équipe"
+        required: true
+      - name: timeframe
+        type: string
+        description: "Période: day, week, month"
+        default: "week"
+
+  - name: verify_memory
+    description: "Vérifier/confirmer une mémoire existante"
+    parameters:
+      - name: memory_id
+        type: string
+        description: "ID de la mémoire à vérifier"
+        required: true
+      - name: user_id
+        type: string
+        description: "ID de l'utilisateur qui vérifie"
+        required: true
+      - name: workspace_id
+        type: string
+        description: "ID du workspace"
+        required: true
+
+  - name: echo
+    description: "Echo the input text (legacy tool)"
+    parameters:
+      - name: text
+        type: string
+        description: "The text to echo"
+        required: true
+
+# Métadonnées
+metadata:
+  author: "Mistral Hackathon Team"
+  license: "MIT"
+  repository: "https://github.com/mistral-hackathon/collective-brain-mcp"
+  tags:
+    - "mcp"
+    - "collective-memory"
+    - "team-brain"
+    - "qdrant"
+    - "mistral"
+    - "hackathon"
+  
+  # Cas d'usage
+  use_cases:
+    - "Résolution collaborative de problèmes"
+    - "Partage de connaissances d'équipe"
+    - "Prise de décisions traçables"
+    - "Onboarding de nouveaux membres"
+    - "Analytics d'activité d'équipe"
+  
+  # Avantages
+  benefits:
+    - "Multi-tenant avec isolation par workspace"
+    - "Permissions granulaires (private/team/public)"
+    - "Recherche sémantique intelligente"
+    - "Validation collaborative des informations"
+    - "Analytics temps réel de l'équipe"

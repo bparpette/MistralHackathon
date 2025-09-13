@@ -1,103 +1,152 @@
-# mcp-server-template-python
+# 🧠 Collective Brain MCP Server
 
-A very simple Python template for building MCP servers using Streamable HTTP transport.
+Système de mémoire collective pour équipes - Un cerveau partagé qui permet aux équipes de stocker, rechercher et partager leurs connaissances de manière intelligente.
 
-## Overview
-This template provides a foundation for creating MCP servers that can communicate with AI assistants and other MCP clients. It includes a simple HTTP server implementation with example tools, resources & prompts to help you get started building your own MCP integrations.
+## 🎯 Concept
 
-## Prerequisites
-- Install uv (https://docs.astral.sh/uv/getting-started/installation/)
+Transformez votre équipe en un cerveau collectif où chaque membre peut :
+- **Stocker** des informations importantes (décisions, solutions, bugs, etc.)
+- **Rechercher** dans la mémoire collective de l'équipe
+- **Partager** le contexte instantanément
+- **Vérifier** et valider les informations
 
-## Installation
+## 🚀 Fonctionnalités
 
-1. Clone the repository:
+### Outils MCP disponibles :
 
+1. **`store_memory`** - Stocker une mémoire collective
+   - Contenu, catégorie, tags, visibilité
+   - Détection automatique de l'importance
+   - Liens avec des mémoires similaires
+
+2. **`search_memories`** - Recherche sémantique
+   - Recherche par similarité de contenu
+   - Filtres par catégorie et visibilité
+   - Respect des permissions (private/team/public)
+
+3. **`get_team_insights`** - Analytics d'équipe
+   - Top catégories et tags
+   - Contributeurs les plus actifs
+   - Mémoires les plus consultées
+
+4. **`verify_memory`** - Validation collaborative
+   - Permettre aux membres de confirmer des infos
+   - Augmenter le score de confiance
+
+## 🏗️ Architecture
+
+```
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│   Le Chat A     │    │   Le Chat B      │    │   Le Chat C     │
+│   (CEO Alice)   │    │   (CTO Bob)      │    │   (CS Charlie)  │
+└─────────┬───────┘    └─────────┬────────┘    └─────────┬───────┘
+          │                      │                       │
+          └──────────────────────┼───────────────────────┘
+                                 │
+                    ┌─────────────▼─────────────┐
+                    │   Collective Brain MCP    │
+                    │   - Store Memories        │
+                    │   - Search & Retrieve     │
+                    │   - Team Insights         │
+                    │   - Verify & Validate     │
+                    └─────────────┬─────────────┘
+                                  │
+                    ┌─────────────▼─────────────┐
+                    │      Qdrant Vector DB     │
+                    │   - Semantic Search       │
+                    │   - Embeddings Storage    │
+                    │   - Workspace Isolation   │
+                    └───────────────────────────┘
+```
+
+## 🛠️ Installation
+
+1. **Installer les dépendances :**
 ```bash
-git clone git@github.com:alpic-ai/mcp-server-template-python.git
-cd mcp-server-template-python
+uv sync
 ```
 
-2. Install python version & dependencies:
+2. **Déploiement automatique :**
+Le serveur se déploie automatiquement à chaque commit sur la branche `main`.
 
+3. **Configuration des clés API :**
+Configurez vos clés API directement sur la plateforme de déploiement :
+- `QDRANT_URL` - URL de votre cluster Qdrant
+- `QDRANT_API_KEY` - Clé API Qdrant  
+- `MISTRAL_API_KEY` - Clé API Mistral
+- `DEFAULT_WORKSPACE` - Workspace par défaut
+
+## 🎬 Démonstration
+
+Lancez le scénario de démo :
 ```bash
-uv python install
-uv sync --locked
+python demo_scenario.py
 ```
 
-## Usage
+**Scénario :** Une startup AI résout un bug critique en 45 minutes au lieu de 2h grâce au partage d'information instantané.
 
-Start the server on port 3000:
+## 📊 Cas d'usage
 
-```bash
-uv run main.py
-```
+### 1. **Résolution de problèmes**
+- CS reçoit une plainte client → stocke dans la mémoire collective
+- CTO cherche le contexte → trouve immédiatement l'impact business
+- CEO voit la priorité → tout le monde est aligné
 
-## Running the Inspector
+### 2. **Prise de décisions**
+- Décisions documentées et traçables
+- Contexte historique accessible
+- Validation collaborative
 
-### Requirements
-- Node.js: ^22.7.5
+### 3. **Onboarding**
+- Nouveaux membres accèdent à l'historique
+- Connaissances préservées
+- Meilleures pratiques partagées
 
-### Quick Start (UI mode)
-To get up and running right away with the UI, just execute the following:
-```bash
-npx @modelcontextprotocol/inspector
-```
+## 🔧 Configuration
 
-The inspector server will start up and the UI will be accessible at http://localhost:6274.
+### Variables d'environnement :
+- `QDRANT_URL` - URL de votre cluster Qdrant
+- `QDRANT_API_KEY` - Clé API Qdrant
+- `MISTRAL_API_KEY` - Clé API Mistral (pour embeddings)
+- `DEFAULT_WORKSPACE` - Workspace par défaut
 
-You can test your server locally by selecting:
-- Transport Type: Streamable HTTP
-- URL: http://127.0.0.1:3000/mcp
+### Permissions :
+- **`private`** - Seul le créateur peut voir
+- **`team`** - Tous les membres du workspace
+- **`public`** - Accessible à tous
 
-## Development
+## 🎯 Roadmap
 
-### Adding New Tools
+### Phase 1 (MVP) ✅
+- [x] Stockage de mémoires
+- [x] Recherche sémantique
+- [x] Système de permissions
+- [x] Analytics d'équipe
 
-To add a new tool, modify `main.py`:
+### Phase 2 (Améliorations)
+- [ ] Intégration Qdrant réelle
+- [ ] Embeddings Mistral
+- [ ] Knowledge graph
+- [ ] Dashboard web
 
-```python
-@mcp.tool(
-    title="Your Tool Name",
-    description="Tool Description for the LLM",
-)
-async def new_tool(
-    tool_param1: str = Field(description="The description of the param1 for the LLM"), 
-    tool_param2: float = Field(description="The description of the param2 for the LLM") 
-)-> str:
-    """The new tool underlying method"""
-    result = await some_api_call(tool_param1, tool_param2)
-    return result
-```
+### Phase 3 (Avancé)
+- [ ] Multi-langue
+- [ ] Voice notes
+- [ ] Predictive insights
+- [ ] API REST
 
-### Adding New Resources
+## 🏆 Avantages concurrentiels
 
-To add a new resource, modify `main.py`:
+1. **Multi-tenant** - Isolation par workspace
+2. **Permissions granulaires** - Contrôle fin de l'accès
+3. **Recherche sémantique** - Trouve même avec des mots différents
+4. **Validation collaborative** - Crowdsourcing de la vérité
+5. **Analytics temps réel** - Insights sur l'activité équipe
 
-```python
-@mcp.resource(
-    uri="your-scheme://{param1}/{param2}",
-    description="Description of what this resource provides",
-    name="Your Resource Name",
-)
-def your_resource(param1: str, param2: str) -> str:
-    """The resource template implementation"""
-    # Your resource logic here
-    return f"Resource content for {param1} and {param2}"
-```
+## 🤝 Contribution
 
-The URI template uses `{param_name}` syntax to define parameters that will be extracted from the resource URI and passed to your function.
+Ce projet a été développé lors du **Mistral AI MCP Hackathon 2025**.
 
-### Adding New Prompts
+## 📄 Licence
 
-To add a new prompt , modify `main.py`:
-
-```python
-@mcp.prompt("")
-async def your_prompt(
-    prompt_param: str = Field(description="The description of the param for the user")
-) -> str:
-    """Generate a helpful prompt"""
-
-    return f"You are a friendly assistant, help the user and don't forget to {prompt_param}."
-
-```
+MIT License - Voir le fichier LICENSE pour plus de détails.
