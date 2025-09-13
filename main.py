@@ -22,10 +22,19 @@ if not os.path.exists('.env') and os.path.exists('config.env.example'):
                 if key not in os.environ:
                     os.environ[key] = value
 
+# Détection environnement Lambda
+IS_LAMBDA = os.getenv("AWS_LAMBDA_FUNCTION_NAME") is not None
+
 # Configuration Qdrant
 QDRANT_URL = os.getenv("QDRANT_URL")  # Ex: https://your-cluster.qdrant.tech
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")  # Votre clé API Qdrant
 QDRANT_ENABLED = os.getenv("QDRANT_ENABLED", "false").lower() == "true"  # Désactivé par défaut pour éviter les timeouts
+
+# En production Lambda, désactiver Qdrant par défaut pour éviter les timeouts
+if IS_LAMBDA and not QDRANT_ENABLED:
+    QDRANT_URL = None
+    QDRANT_API_KEY = None
+    print("🚀 Environnement Lambda détecté - Qdrant désactivé par défaut")
 
 # En production, forcer Qdrant à false si pas explicitement activé
 if not QDRANT_ENABLED:
@@ -36,6 +45,7 @@ USE_QDRANT = bool(QDRANT_URL and QDRANT_API_KEY and QDRANT_ENABLED)
 
 # Debug de la configuration
 print(f"🔧 Configuration Qdrant:")
+print(f"   IS_LAMBDA: {IS_LAMBDA}")
 print(f"   QDRANT_ENABLED: {QDRANT_ENABLED}")
 print(f"   QDRANT_URL: {QDRANT_URL}")
 print(f"   QDRANT_API_KEY: {'***' if QDRANT_API_KEY else 'None'}")
@@ -93,7 +103,7 @@ def generate_embedding(text: str) -> List[float]:
     return vector
 
 class QdrantStorage:
-    """Gestionnaire de stockage Qdrant avec lazy initialization"""
+    """Gestionnaire de stockage Qdrant avec lazy initialization optimisé pour Lambda"""
     
     def __init__(self):
         if not QDRANT_AVAILABLE:
@@ -103,18 +113,31 @@ class QdrantStorage:
         self.client = None
         self.collection_name = "shared_memories"
         self._initialized = False
+        self._init_attempted = False
     
     def _ensure_connected(self):
-        """S'assurer que la connexion Qdrant est établie"""
+        """S'assurer que la connexion Qdrant est établie avec gestion d'erreur pour Lambda"""
+        if not self._initialized and not self._init_attempted:
+            self._init_attempted = True
+            try:
+                print("🔄 Connexion à Qdrant...")
+                self.client = QdrantClient(
+                    url=QDRANT_URL,
+                    api_key=QDRANT_API_KEY,
+                    timeout=10  # Timeout court pour Lambda
+                )
+                self._init_collection()
+                self._initialized = True
+                print("✅ Qdrant connecté et initialisé")
+            except Exception as e:
+                print(f"❌ Erreur connexion Qdrant: {e}")
+                # En cas d'erreur, on continue sans Qdrant
+                self.client = None
+                self._initialized = False
+                raise Exception(f"Impossible de se connecter à Qdrant: {e}")
+        
         if not self._initialized:
-            print("🔄 Connexion à Qdrant...")
-            self.client = QdrantClient(
-                url=QDRANT_URL,
-                api_key=QDRANT_API_KEY
-            )
-            self._init_collection()
-            self._initialized = True
-            print("✅ Qdrant connecté et initialisé")
+            raise Exception("Qdrant non disponible - connexion échouée")
     
     def _init_collection(self):
         """Initialiser la collection Qdrant"""
@@ -286,9 +309,15 @@ def add_memory(
     # Stocker via le système de stockage
     storage = get_storage()
     if storage:
-        # Utiliser Qdrant
-        storage.store_memory(memory, memory_id)
-        message = "Mémoire ajoutée au bucket partagé (Qdrant Cloud)"
+        try:
+            # Utiliser Qdrant
+            storage.store_memory(memory, memory_id)
+            message = "Mémoire ajoutée au bucket partagé (Qdrant Cloud)"
+        except Exception as e:
+            print(f"⚠️ Erreur Qdrant, fallback vers mémoire: {e}")
+            # Fallback vers stockage en mémoire
+            memories[memory_id] = memory
+            message = "Mémoire ajoutée au bucket partagé (mémoire - fallback)"
     else:
         # Utiliser le stockage en mémoire
         memories[memory_id] = memory
@@ -312,10 +341,19 @@ def search_memories(
     
     storage = get_storage()
     if storage:
-        # Utiliser Qdrant
-        results = storage.search_memories(query, limit)
+        try:
+            # Utiliser Qdrant
+            results = storage.search_memories(query, limit)
+        except Exception as e:
+            print(f"⚠️ Erreur Qdrant, fallback vers mémoire: {e}")
+            # Fallback vers stockage en mémoire
+            results = []
     else:
         # Utiliser le stockage en mémoire
+        results = []
+    
+    # Si pas de résultats de Qdrant, utiliser le stockage en mémoire
+    if not results:
         scored_memories = []
         for memory_id, memory in memories.items():
             similarity = calculate_similarity(query, memory.content)
@@ -325,7 +363,6 @@ def search_memories(
         scored_memories.sort(key=lambda x: x[0], reverse=True)
         
         # Formatter les résultats
-        results = []
         for similarity, memory_id, memory in scored_memories[:limit]:
             if similarity > 0:  # Seulement les résultats avec une similarité > 0
                 results.append({
@@ -354,33 +391,38 @@ def delete_memory(
     
     storage = get_storage()
     if storage:
-        # Utiliser Qdrant
-        success = storage.delete_memory(memory_id)
-        if success:
-            return json.dumps({
-                "status": "success",
-                "message": f"Mémoire {memory_id} supprimée du bucket (Qdrant Cloud)"
-            })
-        else:
-            return json.dumps({
-                "status": "error",
-                "message": "Erreur lors de la suppression"
-            })
-    else:
-        # Utiliser le stockage en mémoire
-        if memory_id not in memories:
-            return json.dumps({
-                "status": "error",
-                "message": "Mémoire non trouvée"
-            })
-        
-        # Supprimer la mémoire
-        del memories[memory_id]
-        
+        try:
+            # Utiliser Qdrant
+            success = storage.delete_memory(memory_id)
+            if success:
+                return json.dumps({
+                    "status": "success",
+                    "message": f"Mémoire {memory_id} supprimée du bucket (Qdrant Cloud)"
+                })
+            else:
+                return json.dumps({
+                    "status": "error",
+                    "message": "Erreur lors de la suppression"
+                })
+        except Exception as e:
+            print(f"⚠️ Erreur Qdrant, fallback vers mémoire: {e}")
+            # Fallback vers stockage en mémoire
+            pass
+    
+    # Utiliser le stockage en mémoire (fallback ou par défaut)
+    if memory_id not in memories:
         return json.dumps({
-            "status": "success",
-            "message": f"Mémoire {memory_id} supprimée du bucket (mémoire)"
+            "status": "error",
+            "message": "Mémoire non trouvée"
         })
+    
+    # Supprimer la mémoire
+    del memories[memory_id]
+    
+    return json.dumps({
+        "status": "success",
+        "message": f"Mémoire {memory_id} supprimée du bucket (mémoire)"
+    })
 
 @mcp.tool(
     title="List All Memories",
@@ -391,10 +433,19 @@ def list_memories() -> str:
     
     storage = get_storage()
     if storage:
-        # Utiliser Qdrant
-        all_memories = storage.list_memories()
+        try:
+            # Utiliser Qdrant
+            all_memories = storage.list_memories()
+        except Exception as e:
+            print(f"⚠️ Erreur Qdrant, fallback vers mémoire: {e}")
+            # Fallback vers stockage en mémoire
+            all_memories = []
     else:
         # Utiliser le stockage en mémoire
+        all_memories = []
+    
+    # Si pas de résultats de Qdrant, utiliser le stockage en mémoire
+    if not all_memories:
         if not memories:
             return json.dumps({
                 "status": "success",
@@ -404,7 +455,6 @@ def list_memories() -> str:
             })
         
         # Formatter toutes les mémoires
-        all_memories = []
         for memory_id, memory in memories.items():
             all_memories.append({
                 "memory_id": memory_id,
