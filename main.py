@@ -41,8 +41,11 @@ print(f"   QDRANT_URL: {QDRANT_URL}")
 print(f"   QDRANT_API_KEY: {'***' if QDRANT_API_KEY else 'None'}")
 print(f"   USE_QDRANT: {USE_QDRANT}")
 
-# Configuration
+# Configuration - optimisée pour démarrage rapide
 mcp = FastMCP("Simple Brain Server", port=3000, stateless_http=True, debug=False)
+
+# Message de démarrage rapide
+print("🚀 Serveur MCP démarré - prêt à recevoir des requêtes")
 
 # Modèle de données simplifié
 class Memory(BaseModel):
@@ -66,6 +69,11 @@ if USE_QDRANT:
         print("⚠️ Qdrant client non disponible, utilisation du stockage en mémoire")
 else:
     print("📝 Utilisation du stockage en mémoire (Qdrant désactivé)")
+    # En production, éviter complètement les imports Qdrant
+    QdrantClient = None
+    Distance = None
+    VectorParams = None
+    PointStruct = None
 
 def calculate_similarity(text1: str, text2: str) -> float:
     """Calcule la similarité entre deux textes"""
@@ -396,4 +404,5 @@ def list_memories() -> str:
     })
 
 if __name__ == "__main__":
+    print("🎯 Démarrage du serveur MCP...")
     mcp.run(transport="streamable-http")
