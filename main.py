@@ -185,6 +185,8 @@ def verify_user_token(user_token: str) -> Optional[Dict]:
     """Vérifier un token utilisateur via Supabase (obligatoire)"""
     global requests
     
+    print(f"🔍 Début vérification token: {user_token[:10]}...")
+    
     if not SUPABASE_SERVICE_KEY:
         print("❌ Supabase non configuré - authentification obligatoire")
         return None
@@ -193,6 +195,7 @@ def verify_user_token(user_token: str) -> Optional[Dict]:
     if requests is None:
         try:
             import requests
+            print("✅ Module requests importé")
         except ImportError:
             print("❌ Module requests non disponible")
             return None
@@ -201,6 +204,9 @@ def verify_user_token(user_token: str) -> Optional[Dict]:
         # Si c'est un token Bearer, enlever le préfixe
         if user_token.startswith("Bearer "):
             user_token = user_token[7:]
+            print(f"🔍 Token nettoyé: {user_token[:10]}...")
+        
+        print(f"🔍 Appel Supabase: {SUPABASE_URL}/rest/v1/rpc/verify_user_token")
         
         # Appeler l'API Supabase pour vérifier le token
         response = requests.post(
@@ -214,12 +220,16 @@ def verify_user_token(user_token: str) -> Optional[Dict]:
             timeout=3  # Timeout court pour Lambda
         )
         
+        print(f"🔍 Réponse Supabase: {response.status_code}")
+        
         if response.status_code == 200:
             data = response.json()
+            print(f"🔍 Données reçues: {data}")
             if data and len(data) > 0:
+                print(f"✅ Token valide pour utilisateur: {data[0]}")
                 return data[0]
         
-        print(f"❌ Token invalide: {user_token}")
+        print(f"❌ Token invalide: {user_token[:10]}... (status: {response.status_code})")
         return None
         
     except Exception as e:
@@ -478,11 +488,13 @@ def add_memory(
         })
     
     # Vérifier le token utilisateur
+    print(f"🔍 Vérification du token: {user_token[:10]}...")
     user_info = verify_user_token(user_token)
     if not user_info:
+        print(f"❌ Token invalide ou erreur de vérification: {user_token[:10]}...")
         return json.dumps({
             "status": "error",
-            "message": "Token utilisateur invalide"
+            "message": f"Token utilisateur invalide: {user_token[:10]}..."
         })
     
     user_id = user_info["user_id"]
@@ -565,11 +577,13 @@ def search_memories(
         })
     
     # Vérifier le token utilisateur
+    print(f"🔍 Vérification du token: {user_token[:10]}...")
     user_info = verify_user_token(user_token)
     if not user_info:
+        print(f"❌ Token invalide ou erreur de vérification: {user_token[:10]}...")
         return json.dumps({
             "status": "error",
-            "message": "Token utilisateur invalide"
+            "message": f"Token utilisateur invalide: {user_token[:10]}..."
         })
     
     team_id = user_info["team_id"]
@@ -631,11 +645,13 @@ def delete_memory(memory_id: str, user_token: str = "") -> str:
         })
     
     # Vérifier le token utilisateur
+    print(f"🔍 Vérification du token: {user_token[:10]}...")
     user_info = verify_user_token(user_token)
     if not user_info:
+        print(f"❌ Token invalide ou erreur de vérification: {user_token[:10]}...")
         return json.dumps({
             "status": "error",
-            "message": "Token utilisateur invalide"
+            "message": f"Token utilisateur invalide: {user_token[:10]}..."
         })
     
     team_id = user_info["team_id"]
@@ -694,11 +710,13 @@ def list_memories(user_token: str = "") -> str:
         })
     
     # Vérifier le token utilisateur
+    print(f"🔍 Vérification du token: {user_token[:10]}...")
     user_info = verify_user_token(user_token)
     if not user_info:
+        print(f"❌ Token invalide ou erreur de vérification: {user_token[:10]}...")
         return json.dumps({
             "status": "error",
-            "message": "Token utilisateur invalide"
+            "message": f"Token utilisateur invalide: {user_token[:10]}..."
         })
     
     team_id = user_info["team_id"]
@@ -760,11 +778,13 @@ def get_team_insights(user_token: str = "") -> str:
         })
     
     # Vérifier le token utilisateur
+    print(f"🔍 Vérification du token: {user_token[:10]}...")
     user_info = verify_user_token(user_token)
     if not user_info:
+        print(f"❌ Token invalide ou erreur de vérification: {user_token[:10]}...")
         return json.dumps({
             "status": "error",
-            "message": "Token utilisateur invalide"
+            "message": f"Token utilisateur invalide: {user_token[:10]}..."
         })
     
     team_id = user_info["team_id"]
@@ -868,9 +888,12 @@ def initialize_mcp():
         if mcp:
             # Ajouter le middleware pour capturer les headers
             try:
-                from fastapi import Request
-                mcp.app.middleware("http")(capture_headers_middleware)
-                print("✅ Middleware headers ajouté")
+                # FastMCP utilise uvicorn, on doit accéder à l'app FastAPI différemment
+                if hasattr(mcp, '_app') and mcp._app:
+                    mcp._app.middleware("http")(capture_headers_middleware)
+                    print("✅ Middleware headers ajouté")
+                else:
+                    print("⚠️ App FastAPI non accessible pour le middleware")
             except Exception as e:
                 print(f"⚠️ Impossible d'ajouter le middleware: {e}")
             
