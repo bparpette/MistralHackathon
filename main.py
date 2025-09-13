@@ -15,7 +15,7 @@ from pydantic import Field, BaseModel
 # Configuration Qdrant
 QDRANT_URL = os.getenv("QDRANT_URL")  # Ex: https://your-cluster.qdrant.tech
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")  # Votre clé API Qdrant
-QDRANT_ENABLED = os.getenv("QDRANT_ENABLED", "true").lower() == "true"  # Option pour désactiver
+QDRANT_ENABLED = os.getenv("QDRANT_ENABLED", "false").lower() == "true"  # Désactivé par défaut
 USE_QDRANT = bool(QDRANT_URL and QDRANT_API_KEY and QDRANT_ENABLED)
 
 # Configuration
@@ -30,19 +30,19 @@ class Memory(BaseModel):
 # Stockage en mémoire simple (fallback)
 memories: Dict[str, Memory] = {}
 
-# Import Qdrant si disponible
+# Import Qdrant si disponible (seulement si activé)
+QDRANT_AVAILABLE = False
 if USE_QDRANT:
     try:
         from qdrant_client import QdrantClient
         from qdrant_client.models import Distance, VectorParams, PointStruct
         QDRANT_AVAILABLE = True
-        print(f"🔗 Connexion à Qdrant: {QDRANT_URL}")
+        print(f"🔗 Qdrant configuré: {QDRANT_URL}")
     except ImportError:
         QDRANT_AVAILABLE = False
         print("⚠️ Qdrant client non disponible, utilisation du stockage en mémoire")
 else:
-    QDRANT_AVAILABLE = False
-    print("📝 Utilisation du stockage en mémoire (QDRANT_URL non configuré)")
+    print("📝 Utilisation du stockage en mémoire (Qdrant désactivé)")
 
 def calculate_similarity(text1: str, text2: str) -> float:
     """Calcule la similarité entre deux textes"""
