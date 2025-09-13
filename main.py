@@ -17,6 +17,16 @@ except ImportError:
     requests = None
     print("❌ Module requests non disponible au démarrage")
 
+# Fallback vers urllib si requests n'est pas disponible
+try:
+    import urllib.request
+    import urllib.parse
+    import urllib.error
+    import json as json_module
+    print("✅ Module urllib disponible comme fallback")
+except ImportError:
+    print("❌ Module urllib non disponible")
+
 QDRANT_AVAILABLE = False
 QdrantClient = None
 Distance = None
@@ -195,10 +205,6 @@ def verify_user_token(user_token: str) -> Optional[Dict]:
         print("❌ Supabase non configuré - authentification obligatoire")
         return None
     
-    if requests is None:
-        print("❌ Module requests non disponible")
-        return None
-    
     try:
         # Si c'est un token Bearer, enlever le préfixe
         if user_token.startswith("Bearer "):
@@ -207,29 +213,49 @@ def verify_user_token(user_token: str) -> Optional[Dict]:
         
         print(f"🔍 Appel Supabase: {SUPABASE_URL}/rest/v1/rpc/verify_user_token")
         
-        # Appeler l'API Supabase pour vérifier le token
-        response = requests.post(
-            f"{SUPABASE_URL}/rest/v1/rpc/verify_user_token",
-            headers={
-                "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
-                "Content-Type": "application/json",
-                "apikey": SUPABASE_SERVICE_KEY
-            },
-            json={"token": user_token},
-            timeout=3  # Timeout court pour Lambda
-        )
+        # Utiliser requests si disponible, sinon urllib
+        if requests is not None:
+            print("🔍 Utilisation de requests")
+            response = requests.post(
+                f"{SUPABASE_URL}/rest/v1/rpc/verify_user_token",
+                headers={
+                    "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                    "Content-Type": "application/json",
+                    "apikey": SUPABASE_SERVICE_KEY
+                },
+                json={"token": user_token},
+                timeout=3
+            )
+            status_code = response.status_code
+            response_text = response.text
+        else:
+            print("🔍 Utilisation de urllib (fallback)")
+            # Utiliser urllib comme fallback
+            data = json.dumps({"token": user_token}).encode('utf-8')
+            req = urllib.request.Request(
+                f"{SUPABASE_URL}/rest/v1/rpc/verify_user_token",
+                data=data,
+                headers={
+                    "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                    "Content-Type": "application/json",
+                    "apikey": SUPABASE_SERVICE_KEY
+                }
+            )
+            response = urllib.request.urlopen(req, timeout=3)
+            status_code = response.getcode()
+            response_text = response.read().decode('utf-8')
         
-        print(f"🔍 Réponse Supabase: {response.status_code}")
-        print(f"🔍 Contenu de la réponse: {response.text}")
+        print(f"🔍 Réponse Supabase: {status_code}")
+        print(f"🔍 Contenu de la réponse: {response_text}")
         
-        if response.status_code == 200:
-            data = response.json()
+        if status_code == 200:
+            data = json.loads(response_text)
             print(f"🔍 Données reçues: {data}")
             if data and len(data) > 0:
                 print(f"✅ Token valide pour utilisateur: {data[0]}")
                 return data[0]
         
-        print(f"❌ Token invalide: {user_token[:10]}... (status: {response.status_code})")
+        print(f"❌ Token invalide: {user_token[:10]}... (status: {status_code})")
         return None
         
     except Exception as e:
