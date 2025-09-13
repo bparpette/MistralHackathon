@@ -6,9 +6,16 @@ Système de mémoire collective avec isolation par équipe
 import os
 import hashlib
 import json
-import requests
 from datetime import datetime
 from typing import List, Dict, Optional
+
+# Import paresseux pour optimiser le démarrage Lambda
+requests = None
+QDRANT_AVAILABLE = False
+QdrantClient = None
+Distance = None
+VectorParams = None
+PointStruct = None
 
 # Charger les variables d'environnement depuis config.env.example si .env n'existe pas
 if not os.path.exists('.env') and os.path.exists('config.env.example'):
@@ -38,23 +45,34 @@ IS_LAMBDA = (
 
 # En Lambda, mode paresseux pour éviter les timeouts
 if IS_LAMBDA and QDRANT_ENABLED:
-    print("🚀 Mode Lambda - Qdrant en mode paresseux")
+    # Pas de log en Lambda pour optimiser le démarrage
     USE_QDRANT = True
 else:
     USE_QDRANT = bool(QDRANT_URL and QDRANT_API_KEY and QDRANT_ENABLED)
 
-# Debug minimal
-print(f"🔧 Qdrant: {'Activé' if USE_QDRANT else 'Désactivé'}")
-print(f"🔧 Supabase: {'Activé' if SUPABASE_SERVICE_KEY else 'Désactivé'}")
+# Debug minimal - seulement en local
+if not IS_LAMBDA:
+    print(f"🔧 Qdrant: {'Activé' if USE_QDRANT else 'Désactivé'}")
+    print(f"🔧 Supabase: {'Activé' if SUPABASE_SERVICE_KEY else 'Désactivé'}")
 
 # Import paresseux de FastMCP
 def get_mcp():
-    """Import paresseux de FastMCP"""
+    """Import paresseux de FastMCP - optimisé pour Lambda"""
     try:
         from mcp.server.fastmcp import FastMCP
-        return FastMCP("Collective Brain Server", port=3000, stateless_http=True, debug=False)
+        # Configuration optimisée pour Lambda
+        return FastMCP(
+            "Collective Brain Server", 
+            port=3000, 
+            stateless_http=True, 
+            debug=False,
+            # Optimisations Lambda
+            timeout=25,  # Moins que le timeout Lambda de 30s
+            keep_alive=False
+        )
     except ImportError:
-        print("❌ FastMCP non disponible")
+        if not IS_LAMBDA:
+            print("❌ FastMCP non disponible")
         return None
 
 # Modèle de données enrichi pour le cerveau collectif
@@ -82,7 +100,7 @@ VectorParams = None
 PointStruct = None
 
 def ensure_qdrant_import():
-    """Import paresseux de Qdrant"""
+    """Import paresseux de Qdrant - optimisé pour Lambda"""
     global QDRANT_AVAILABLE, QdrantClient, Distance, VectorParams, PointStruct
     
     if not QDRANT_AVAILABLE and USE_QDRANT:
@@ -90,10 +108,13 @@ def ensure_qdrant_import():
             from qdrant_client import QdrantClient
             from qdrant_client.models import Distance, VectorParams, PointStruct
             QDRANT_AVAILABLE = True
-            print("✅ Qdrant importé avec succès")
+            # Pas de print en Lambda pour éviter les logs
+            if not IS_LAMBDA:
+                print("✅ Qdrant importé avec succès")
         except ImportError:
             QDRANT_AVAILABLE = False
-            print("❌ Qdrant non disponible")
+            if not IS_LAMBDA:
+                print("❌ Qdrant non disponible")
 
 def calculate_similarity(text1: str, text2: str) -> float:
     """Calcule la similarité entre deux textes"""
@@ -114,9 +135,19 @@ def generate_embedding(text: str) -> List[float]:
 
 def verify_user_token(user_token: str) -> Optional[Dict]:
     """Vérifier un token utilisateur via Supabase (obligatoire)"""
+    global requests
+    
     if not SUPABASE_SERVICE_KEY:
         print("❌ Supabase non configuré - authentification obligatoire")
         return None
+    
+    # Import paresseux de requests
+    if requests is None:
+        try:
+            import requests
+        except ImportError:
+            print("❌ Module requests non disponible")
+            return None
     
     try:
         # Appeler l'API Supabase pour vérifier le token
@@ -163,17 +194,19 @@ class QdrantStorage:
                 raise Exception("Qdrant non disponible")
             
             try:
-                print("🔄 Connexion Qdrant...")
+                if not IS_LAMBDA:
+                    print("🔄 Connexion Qdrant...")
                 self.client = QdrantClient(
                     url=QDRANT_URL,
                     api_key=QDRANT_API_KEY,
-                    timeout=3  # Timeout très court pour Lambda
+                    timeout=2  # Timeout encore plus court pour Lambda
                 )
-                self._init_collection()
                 self._initialized = True
-                print("✅ Qdrant connecté")
+                if not IS_LAMBDA:
+                    print("✅ Qdrant connecté")
             except Exception as e:
-                print(f"❌ Erreur Qdrant: {e}")
+                if not IS_LAMBDA:
+                    print(f"❌ Erreur Qdrant: {e}")
                 self.client = None
                 self._initialized = False
                 raise Exception(f"Connexion Qdrant échouée: {e}")
@@ -728,20 +761,25 @@ def initialize_mcp():
                 description="Obtenir des insights sur l'activité de l'équipe",
             )(get_team_insights)
             
-            print("✅ MCP initialisé avec succès")
+            if not IS_LAMBDA:
+                print("✅ MCP initialisé avec succès")
         else:
-            print("❌ Impossible d'initialiser MCP")
+            if not IS_LAMBDA:
+                print("❌ Impossible d'initialiser MCP")
     
     return mcp
 
 if __name__ == "__main__":
-    print("🎯 Démarrage du serveur MCP Collective Brain...")
+    if not IS_LAMBDA:
+        print("🎯 Démarrage du serveur MCP Collective Brain...")
     
     # Initialisation paresseuse
     mcp = initialize_mcp()
     
     if mcp:
-        print("🚀 Serveur MCP Collective Brain démarré - prêt à recevoir des requêtes")
+        if not IS_LAMBDA:
+            print("🚀 Serveur MCP Collective Brain démarré - prêt à recevoir des requêtes")
         mcp.run(transport="streamable-http")
     else:
-        print("❌ Impossible de démarrer le serveur MCP")
+        if not IS_LAMBDA:
+            print("❌ Impossible de démarrer le serveur MCP")
