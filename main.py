@@ -61,9 +61,12 @@ IS_LAMBDA = (
 
 # En Lambda, mode paresseux pour éviter les timeouts
 if IS_LAMBDA:
-    # En Lambda, on désactive Qdrant au démarrage pour éviter les timeouts
-    # Il sera activé seulement quand nécessaire
-    USE_QDRANT = False
+    # En Lambda, on active Qdrant si les credentials sont disponibles
+    USE_QDRANT = bool(QDRANT_URL and QDRANT_API_KEY)
+    if USE_QDRANT:
+        print("🚀 Mode Lambda - Qdrant activé (paresseux)")
+    else:
+        print("🚀 Mode Lambda - Qdrant désactivé (pas de credentials)")
 else:
     USE_QDRANT = bool(QDRANT_URL and QDRANT_API_KEY and QDRANT_ENABLED)
 
@@ -275,13 +278,12 @@ class QdrantStorage:
         if not self._initialized and not self._init_attempted:
             self._init_attempted = True
             
-            # En Lambda, on active Qdrant seulement quand nécessaire
-            if IS_LAMBDA and not QDRANT_ENABLED:
-                # Vérifier si Qdrant est configuré
-                if QDRANT_URL and QDRANT_API_KEY:
-                    # Activer Qdrant dynamiquement
-                    global USE_QDRANT
-                    USE_QDRANT = True
+            # En Lambda, activer Qdrant si les credentials sont disponibles
+            if IS_LAMBDA and QDRANT_URL and QDRANT_API_KEY:
+                print("🔧 Activation de Qdrant en Lambda...")
+                # Activer Qdrant dynamiquement
+                global USE_QDRANT
+                USE_QDRANT = True
             
             # Import paresseux
             ensure_qdrant_import()
@@ -290,19 +292,16 @@ class QdrantStorage:
                 raise Exception("Qdrant non disponible")
             
             try:
-                if not IS_LAMBDA:
-                    print("🔄 Connexion Qdrant...")
+                print("🔄 Connexion Qdrant...")
                 self.client = QdrantClient(
                     url=QDRANT_URL,
                     api_key=QDRANT_API_KEY,
-                    timeout=2  # Timeout encore plus court pour Lambda
+                    timeout=3  # Timeout court pour Lambda
                 )
                 self._initialized = True
-                if not IS_LAMBDA:
-                    print("✅ Qdrant connecté")
+                print("✅ Qdrant connecté")
             except Exception as e:
-                if not IS_LAMBDA:
-                    print(f"❌ Erreur Qdrant: {e}")
+                print(f"❌ Erreur Qdrant: {e}")
                 self.client = None
                 self._initialized = False
                 raise Exception(f"Connexion Qdrant échouée: {e}")
@@ -470,7 +469,16 @@ def get_storage():
     """Obtenir l'instance de stockage avec initialisation paresseuse"""
     global storage
     if storage is None:
-        if USE_QDRANT:
+        # En Lambda, activer Qdrant à la demande si les credentials sont disponibles
+        if IS_LAMBDA and QDRANT_URL and QDRANT_API_KEY:
+            try:
+                print("🔧 Activation de Qdrant en Lambda...")
+                storage = QdrantStorage()
+                print("✅ Qdrant activé en Lambda")
+            except Exception as e:
+                print(f"⚠️ Erreur activation Qdrant en Lambda: {e}")
+                storage = None
+        elif USE_QDRANT:
             storage = QdrantStorage()
         else:
             storage = None
