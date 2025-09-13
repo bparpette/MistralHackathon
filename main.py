@@ -26,7 +26,20 @@ if not os.path.exists('.env') and os.path.exists('config.env.example'):
 QDRANT_URL = os.getenv("QDRANT_URL")  # Ex: https://your-cluster.qdrant.tech
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")  # Votre clé API Qdrant
 QDRANT_ENABLED = os.getenv("QDRANT_ENABLED", "false").lower() == "true"  # Désactivé par défaut pour éviter les timeouts
+
+# En production, forcer Qdrant à false si pas explicitement activé
+if not QDRANT_ENABLED:
+    QDRANT_URL = None
+    QDRANT_API_KEY = None
+
 USE_QDRANT = bool(QDRANT_URL and QDRANT_API_KEY and QDRANT_ENABLED)
+
+# Debug de la configuration
+print(f"🔧 Configuration Qdrant:")
+print(f"   QDRANT_ENABLED: {QDRANT_ENABLED}")
+print(f"   QDRANT_URL: {QDRANT_URL}")
+print(f"   QDRANT_API_KEY: {'***' if QDRANT_API_KEY else 'None'}")
+print(f"   USE_QDRANT: {USE_QDRANT}")
 
 # Configuration
 mcp = FastMCP("Simple Brain Server", port=3000, stateless_http=True, debug=False)
