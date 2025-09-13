@@ -73,6 +73,23 @@ def get_mcp():
             print("❌ FastMCP non disponible")
         return None
 
+def extract_token_from_headers():
+    """Extraire le token Bearer depuis les headers HTTP"""
+    try:
+        # En Lambda, les headers sont disponibles via les variables d'environnement
+        auth_header = os.getenv("HTTP_AUTHORIZATION", "")
+        if auth_header.startswith("Bearer "):
+            return auth_header[7:]  # Enlever "Bearer "
+        
+        # Fallback: chercher dans d'autres variables d'environnement
+        for key, value in os.environ.items():
+            if "AUTHORIZATION" in key.upper() and value.startswith("Bearer "):
+                return value[7:]
+        
+        return ""
+    except Exception:
+        return ""
+
 # Modèle de données enrichi pour le cerveau collectif
 class Memory:
     def __init__(self, content: str, user_id: str = "", team_id: str = "", 
@@ -399,12 +416,22 @@ def get_mcp_instance():
 # Outils MCP avec authentification
 def add_memory(
     content: str,
-    user_token: str,
+    user_token: str = "",
     tags: str = "",
     category: str = "general",
     visibility: str = "team"
 ) -> str:
     """Ajouter une mémoire au cerveau collectif avec authentification"""
+    
+    # Si pas de token fourni, essayer de le récupérer depuis les headers
+    if not user_token:
+        user_token = extract_token_from_headers()
+    
+    if not user_token:
+        return json.dumps({
+            "status": "error",
+            "message": "Token utilisateur requis. Veuillez configurer l'authentification Bearer dans Le Chat."
+        })
     
     # Vérifier le token utilisateur
     user_info = verify_user_token(user_token)
@@ -478,10 +505,22 @@ def add_memory(
 
 def search_memories(
     query: str,
-    user_token: str,
+    user_token: str = "",
     limit: int = 5
 ) -> str:
     """Rechercher dans le cerveau collectif avec authentification"""
+    
+    # Si pas de token fourni, essayer de le récupérer depuis les headers
+    if not user_token:
+        user_token = os.getenv("AUTHORIZATION_TOKEN", "")
+        if user_token.startswith("Bearer "):
+            user_token = user_token[7:]
+    
+    if not user_token:
+        return json.dumps({
+            "status": "error",
+            "message": "Token utilisateur requis. Veuillez configurer l'authentification Bearer dans Le Chat."
+        })
     
     # Vérifier le token utilisateur
     user_info = verify_user_token(user_token)
@@ -536,8 +575,20 @@ def search_memories(
         "team": team_id
     })
 
-def delete_memory(memory_id: str, user_token: str) -> str:
+def delete_memory(memory_id: str, user_token: str = "") -> str:
     """Supprimer une mémoire du cerveau collectif avec authentification"""
+    
+    # Si pas de token fourni, essayer de le récupérer depuis les headers
+    if not user_token:
+        user_token = os.getenv("AUTHORIZATION_TOKEN", "")
+        if user_token.startswith("Bearer "):
+            user_token = user_token[7:]
+    
+    if not user_token:
+        return json.dumps({
+            "status": "error",
+            "message": "Token utilisateur requis. Veuillez configurer l'authentification Bearer dans Le Chat."
+        })
     
     # Vérifier le token utilisateur
     user_info = verify_user_token(user_token)
@@ -589,8 +640,20 @@ def delete_memory(memory_id: str, user_token: str) -> str:
         "message": f"Mémoire {memory_id} supprimée du cerveau collectif (mémoire)"
     })
 
-def list_memories(user_token: str) -> str:
+def list_memories(user_token: str = "") -> str:
     """Lister toutes les mémoires du cerveau collectif avec authentification"""
+    
+    # Si pas de token fourni, essayer de le récupérer depuis les headers
+    if not user_token:
+        user_token = os.getenv("AUTHORIZATION_TOKEN", "")
+        if user_token.startswith("Bearer "):
+            user_token = user_token[7:]
+    
+    if not user_token:
+        return json.dumps({
+            "status": "error",
+            "message": "Token utilisateur requis. Veuillez configurer l'authentification Bearer dans Le Chat."
+        })
     
     # Vérifier le token utilisateur
     user_info = verify_user_token(user_token)
@@ -645,8 +708,20 @@ def list_memories(user_token: str) -> str:
         "team": team_id
     })
 
-def get_team_insights(user_token: str) -> str:
+def get_team_insights(user_token: str = "") -> str:
     """Obtenir des insights sur l'activité de l'équipe avec authentification"""
+    
+    # Si pas de token fourni, essayer de le récupérer depuis les headers
+    if not user_token:
+        user_token = os.getenv("AUTHORIZATION_TOKEN", "")
+        if user_token.startswith("Bearer "):
+            user_token = user_token[7:]
+    
+    if not user_token:
+        return json.dumps({
+            "status": "error",
+            "message": "Token utilisateur requis. Veuillez configurer l'authentification Bearer dans Le Chat."
+        })
     
     # Vérifier le token utilisateur
     user_info = verify_user_token(user_token)
