@@ -15,7 +15,8 @@ from pydantic import Field, BaseModel
 # Configuration Qdrant
 QDRANT_URL = os.getenv("QDRANT_URL")  # Ex: https://your-cluster.qdrant.tech
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")  # Votre clé API Qdrant
-USE_QDRANT = bool(QDRANT_URL and QDRANT_API_KEY)
+QDRANT_ENABLED = os.getenv("QDRANT_ENABLED", "true").lower() == "true"  # Option pour désactiver
+USE_QDRANT = bool(QDRANT_URL and QDRANT_API_KEY and QDRANT_ENABLED)
 
 # Configuration
 mcp = FastMCP("Simple Brain Server", port=3000, stateless_http=True, debug=False)
@@ -190,15 +191,22 @@ class QdrantStorage:
             print(f"❌ Erreur listage Qdrant: {e}")
             return []
 
-# Initialiser le stockage
+# Initialiser le stockage (lazy loading)
 storage = None
 
 def get_storage():
-    """Obtenir l'instance de stockage"""
+    """Obtenir l'instance de stockage avec initialisation paresseuse"""
     global storage
     if storage is None:
         if USE_QDRANT and QDRANT_AVAILABLE:
-            storage = QdrantStorage()
+            try:
+                print("🔄 Initialisation de Qdrant...")
+                storage = QdrantStorage()
+                print("✅ Qdrant initialisé avec succès")
+            except Exception as e:
+                print(f"❌ Erreur initialisation Qdrant: {e}")
+                print("📝 Fallback vers stockage en mémoire")
+                storage = None
         else:
             storage = None  # Utiliser le stockage en mémoire
     return storage
