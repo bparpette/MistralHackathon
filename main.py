@@ -252,14 +252,8 @@ def get_storage():
     global storage
     if storage is None:
         if USE_QDRANT and QDRANT_AVAILABLE:
-            try:
-                print("🔄 Initialisation de Qdrant...")
-                storage = QdrantStorage()
-                print("✅ Qdrant initialisé avec succès")
-            except Exception as e:
-                print(f"❌ Erreur initialisation Qdrant: {e}")
-                print("⚠️ Fallback vers stockage en mémoire")
-                storage = None
+            # Créer l'instance SANS connexion réseau
+            storage = QdrantStorage()
         else:
             print("📝 Qdrant Cloud désactivé - utilisation du stockage en mémoire")
             storage = None
