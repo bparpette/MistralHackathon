@@ -10,7 +10,13 @@ from datetime import datetime
 from typing import List, Dict, Optional
 
 # Import paresseux pour optimiser le démarrage Lambda
-requests = None
+try:
+    import requests
+    print("✅ Module requests importé au démarrage")
+except ImportError:
+    requests = None
+    print("❌ Module requests non disponible au démarrage")
+
 QDRANT_AVAILABLE = False
 QdrantClient = None
 Distance = None
@@ -183,22 +189,15 @@ def generate_embedding(text: str) -> List[float]:
 
 def verify_user_token(user_token: str) -> Optional[Dict]:
     """Vérifier un token utilisateur via Supabase (obligatoire)"""
-    global requests
-    
     print(f"🔍 Début vérification token: {user_token[:10]}...")
     
     if not SUPABASE_SERVICE_KEY:
         print("❌ Supabase non configuré - authentification obligatoire")
         return None
     
-    # Import paresseux de requests
     if requests is None:
-        try:
-            import requests
-            print("✅ Module requests importé")
-        except ImportError:
-            print("❌ Module requests non disponible")
-            return None
+        print("❌ Module requests non disponible")
+        return None
     
     try:
         # Si c'est un token Bearer, enlever le préfixe
@@ -221,6 +220,7 @@ def verify_user_token(user_token: str) -> Optional[Dict]:
         )
         
         print(f"🔍 Réponse Supabase: {response.status_code}")
+        print(f"🔍 Contenu de la réponse: {response.text}")
         
         if response.status_code == 200:
             data = response.json()
