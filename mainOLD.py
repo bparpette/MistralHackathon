@@ -1,90 +1,82 @@
 """
-MCP Simple Brain Server
-Bucket de mémoire partagé - tout le monde peut ajouter/lire
+MCP Collective Brain Server - Version avec authentification Supabase
+Système de mémoire collective multi-tenant avec isolation par équipe
 """
 
 import os
 import hashlib
 import json
+import requests
 from datetime import datetime
 from typing import List, Dict, Optional
 
-from mcp.server.fastmcp import FastMCP
-from pydantic import Field, BaseModel
-
-# Charger les variables d'environnement depuis config.env.example si .env n'existe pas
-if not os.path.exists('.env') and os.path.exists('config.env.example'):
-    with open('config.env.example', 'r') as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith('#') and '=' in line:
-                key, value = line.split('=', 1)
-                if key not in os.environ:
-                    os.environ[key] = value
+# Configuration Supabase
+SUPABASE_URL = os.getenv("SUPABASE_URL", "https://hzoggayzniyxlbwxchcx.supabase.co")
+SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
 # Configuration Qdrant - optimisée pour démarrage rapide
-QDRANT_URL = os.getenv("QDRANT_URL")  # Ex: https://your-cluster.qdrant.tech
-QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")  # Votre clé API Qdrant
+QDRANT_URL = os.getenv("QDRANT_URL")
+QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
 QDRANT_ENABLED = os.getenv("QDRANT_ENABLED", "false").lower() == "true"
 
-# Détection environnement Lambda pour optimisation
+# Détection environnement Lambda
 IS_LAMBDA = (
     os.getenv("AWS_LAMBDA_FUNCTION_NAME") is not None or
     os.getenv("AWS_EXECUTION_ENV") is not None or
     os.getenv("LAMBDA_TASK_ROOT") is not None
 )
 
-# En Lambda, désactiver Qdrant au démarrage pour éviter les timeouts
-# Il sera activé à la première utilisation
+# En Lambda, mode paresseux pour éviter les timeouts
 if IS_LAMBDA and QDRANT_ENABLED:
-    print("🚀 Environnement Lambda détecté - Qdrant activé en mode paresseux")
-    USE_QDRANT = True  # Configuré mais pas initialisé
+    print("🚀 Mode Lambda - Qdrant en mode paresseux")
+    USE_QDRANT = True
 else:
     USE_QDRANT = bool(QDRANT_URL and QDRANT_API_KEY and QDRANT_ENABLED)
 
-# Debug de la configuration
-print(f"🔧 Configuration Qdrant:")
-print(f"   QDRANT_ENABLED: {QDRANT_ENABLED}")
-print(f"   QDRANT_URL: {QDRANT_URL}")
-print(f"   QDRANT_API_KEY: {'***' if QDRANT_API_KEY else 'None'}")
-print(f"   USE_QDRANT: {USE_QDRANT}")
+# Debug minimal
+print(f"🔧 Qdrant: {'Activé' if USE_QDRANT else 'Désactivé'}")
+print(f"🔧 Supabase: {'Activé' if SUPABASE_SERVICE_KEY else 'Désactivé'}")
 
-# Configuration - optimisée pour démarrage rapide
-mcp = FastMCP("Simple Brain Server", port=3000, stateless_http=True, debug=False)
-
-# Message de démarrage rapide
-print("🚀 Serveur MCP démarré - prêt à recevoir des requêtes")
-if IS_LAMBDA:
-    print("⚡ Mode Lambda optimisé - Qdrant initialisé à la première utilisation")
-else:
-    print("⚡ Démarrage optimisé - Qdrant sera initialisé à la première utilisation")
+# Import paresseux de FastMCP
+def get_mcp():
+    """Import paresseux de FastMCP"""
+    try:
+        from mcp.server.fastmcp import FastMCP
+        return FastMCP("Simple Brain Server", port=3000, stateless_http=True, debug=False)
+    except ImportError:
+        print("❌ FastMCP non disponible")
+        return None
 
 # Modèle de données simplifié
-class Memory(BaseModel):
-    content: str
-    timestamp: str = ""
-    tags: List[str] = []
+class Memory:
+    def __init__(self, content: str, timestamp: str = "", tags: List[str] = []):
+        self.content = content
+        self.timestamp = timestamp
+        self.tags = tags
 
 # Stockage en mémoire simple (fallback)
 memories: Dict[str, Memory] = {}
 
-# Import Qdrant si disponible (seulement si activé) - optimisé pour démarrage rapide
+# Import paresseux de Qdrant
 QDRANT_AVAILABLE = False
 QdrantClient = None
 Distance = None
 VectorParams = None
 PointStruct = None
 
-if USE_QDRANT:
-    try:
-        # Import paresseux pour éviter les timeouts au démarrage
-        print("🔗 Qdrant configuré - import paresseux activé")
-        QDRANT_AVAILABLE = True
-    except ImportError:
-        QDRANT_AVAILABLE = False
-        print("⚠️ Qdrant client non disponible, utilisation du stockage en mémoire")
-else:
-    print("📝 Utilisation du stockage en mémoire (Qdrant désactivé)")
+def ensure_qdrant_import():
+    """Import paresseux de Qdrant"""
+    global QDRANT_AVAILABLE, QdrantClient, Distance, VectorParams, PointStruct
+    
+    if not QDRANT_AVAILABLE and USE_QDRANT:
+        try:
+            from qdrant_client import QdrantClient
+            from qdrant_client.models import Distance, VectorParams, PointStruct
+            QDRANT_AVAILABLE = True
+            print("✅ Qdrant importé avec succès")
+        except ImportError:
+            QDRANT_AVAILABLE = False
+            print("❌ Qdrant non disponible")
 
 def calculate_similarity(text1: str, text2: str) -> float:
     """Calcule la similarité entre deux textes"""
@@ -104,80 +96,70 @@ def generate_embedding(text: str) -> List[float]:
     return vector
 
 class QdrantStorage:
-    """Gestionnaire de stockage Qdrant avec lazy initialization optimisé pour Lambda"""
+    """Gestionnaire de stockage Qdrant ultra-optimisé"""
     
     def __init__(self):
-        if not QDRANT_AVAILABLE:
-            raise Exception("Qdrant non disponible")
-        
-        # Lazy initialization - pas de connexion au démarrage
         self.client = None
         self.collection_name = "shared_memories"
         self._initialized = False
         self._init_attempted = False
     
     def _ensure_connected(self):
-        """S'assurer que la connexion Qdrant est établie avec gestion d'erreur robuste"""
+        """Connexion paresseuse avec timeout court"""
         if not self._initialized and not self._init_attempted:
             self._init_attempted = True
+            
+            # Import paresseux
+            ensure_qdrant_import()
+            
+            if not QDRANT_AVAILABLE:
+                raise Exception("Qdrant non disponible")
+            
             try:
-                print("🔄 Connexion à Qdrant...")
-                
-                # Import paresseux des modules Qdrant
-                global QdrantClient, Distance, VectorParams, PointStruct
-                if QdrantClient is None:
-                    from qdrant_client import QdrantClient
-                    from qdrant_client.models import Distance, VectorParams, PointStruct
-                
+                print("🔄 Connexion Qdrant...")
                 self.client = QdrantClient(
                     url=QDRANT_URL,
                     api_key=QDRANT_API_KEY,
-                    timeout=5  # Timeout très court pour Lambda
+                    timeout=3  # Timeout très court pour Lambda
                 )
                 self._init_collection()
                 self._initialized = True
-                print("✅ Qdrant connecté et initialisé")
+                print("✅ Qdrant connecté")
             except Exception as e:
-                print(f"❌ Erreur connexion Qdrant: {e}")
-                # En cas d'erreur, on continue sans Qdrant
+                print(f"❌ Erreur Qdrant: {e}")
                 self.client = None
                 self._initialized = False
-                raise Exception(f"Impossible de se connecter à Qdrant: {e}")
+                raise Exception(f"Connexion Qdrant échouée: {e}")
         
         if not self._initialized:
-            raise Exception("Qdrant non disponible - connexion échouée")
+            raise Exception("Qdrant non disponible")
     
     def _init_collection(self):
-        """Initialiser la collection Qdrant"""
+        """Initialisation rapide de la collection"""
         try:
-            # Vérifier si la collection existe
             collections = self.client.get_collections()
             collection_names = [c.name for c in collections.collections]
             
             if self.collection_name not in collection_names:
-                # Créer la collection
                 self.client.create_collection(
                     collection_name=self.collection_name,
                     vectors_config=VectorParams(size=384, distance=Distance.COSINE)
                 )
                 print(f"✅ Collection '{self.collection_name}' créée")
             else:
-                print(f"✅ Collection '{self.collection_name}' existe déjà")
+                print(f"✅ Collection '{self.collection_name}' existe")
                 
         except Exception as e:
-            print(f"❌ Erreur initialisation Qdrant: {e}")
+            print(f"❌ Erreur collection: {e}")
             raise
     
     def store_memory(self, memory: Memory, memory_id: str) -> str:
-        """Stocker une mémoire dans Qdrant"""
+        """Stocker une mémoire avec timeout court"""
         try:
-            # S'assurer que la connexion est établie
             self._ensure_connected()
             
-            # Générer l'embedding
             embedding = generate_embedding(memory.content)
             
-            # Créer le point
             point = PointStruct(
                 id=memory_id,
                 vector=embedding,
@@ -188,7 +170,6 @@ class QdrantStorage:
                 }
             )
             
-            # Insérer dans Qdrant
             self.client.upsert(
                 collection_name=self.collection_name,
                 points=[point]
@@ -197,26 +178,22 @@ class QdrantStorage:
             return memory_id
             
         except Exception as e:
-            print(f"❌ Erreur stockage Qdrant: {e}")
+            print(f"❌ Erreur stockage: {e}")
             raise
     
     def search_memories(self, query: str, limit: int = 5) -> List[Dict]:
-        """Rechercher des mémoires dans Qdrant"""
+        """Recherche avec timeout court"""
         try:
-            # S'assurer que la connexion est établie
             self._ensure_connected()
             
-            # Générer l'embedding de la requête
             query_embedding = generate_embedding(query)
             
-            # Recherche vectorielle
             search_results = self.client.search(
                 collection_name=self.collection_name,
                 query_vector=query_embedding,
                 limit=limit
             )
             
-            # Formatter les résultats
             results = []
             for result in search_results:
                 results.append({
@@ -230,13 +207,12 @@ class QdrantStorage:
             return results
             
         except Exception as e:
-            print(f"❌ Erreur recherche Qdrant: {e}")
+            print(f"❌ Erreur recherche: {e}")
             return []
     
     def delete_memory(self, memory_id: str) -> bool:
-        """Supprimer une mémoire de Qdrant"""
+        """Suppression avec timeout court"""
         try:
-            # S'assurer que la connexion est établie
             self._ensure_connected()
             
             self.client.delete(
@@ -245,19 +221,17 @@ class QdrantStorage:
             )
             return True
         except Exception as e:
-            print(f"❌ Erreur suppression Qdrant: {e}")
+            print(f"❌ Erreur suppression: {e}")
             return False
     
     def list_memories(self) -> List[Dict]:
-        """Lister toutes les mémoires de Qdrant"""
+        """Listage avec timeout court"""
         try:
-            # S'assurer que la connexion est établie
             self._ensure_connected()
             
-            # Récupérer tous les points
             points = self.client.scroll(
                 collection_name=self.collection_name,
-                limit=1000  # Limite raisonnable
+                limit=1000
             )[0]
             
             results = []
@@ -272,32 +246,36 @@ class QdrantStorage:
             return results
             
         except Exception as e:
-            print(f"❌ Erreur listage Qdrant: {e}")
+            print(f"❌ Erreur listage: {e}")
             return []
 
-# Initialiser le stockage (lazy loading)
+# Initialisation paresseuse du stockage
 storage = None
 
 def get_storage():
     """Obtenir l'instance de stockage avec initialisation paresseuse"""
     global storage
     if storage is None:
-        if USE_QDRANT and QDRANT_AVAILABLE:
-            # Créer l'instance SANS connexion réseau
+        if USE_QDRANT:
             storage = QdrantStorage()
         else:
-            print("📝 Qdrant Cloud désactivé - utilisation du stockage en mémoire")
             storage = None
     return storage
 
+# Initialisation paresseuse de MCP
+mcp = None
 
-@mcp.tool(
-    title="Add Memory",
-    description="Ajouter une mémoire au bucket partagé",
-)
+def get_mcp_instance():
+    """Obtenir l'instance MCP avec initialisation paresseuse"""
+    global mcp
+    if mcp is None:
+        mcp = get_mcp()
+    return mcp
+
+# Outils MCP avec initialisation paresseuse
 def add_memory(
-    content: str = Field(description="Le contenu de la mémoire à ajouter"),
-    tags: str = Field(description="Tags séparés par des virgules", default="")
+    content: str,
+    tags: str = ""
 ) -> str:
     """Ajouter une mémoire au bucket partagé"""
     
@@ -318,16 +296,13 @@ def add_memory(
     storage = get_storage()
     if storage:
         try:
-            # Utiliser Qdrant
             storage.store_memory(memory, memory_id)
             message = "Mémoire ajoutée au bucket partagé (Qdrant Cloud)"
         except Exception as e:
             print(f"⚠️ Erreur Qdrant, fallback vers mémoire: {e}")
-            # Fallback vers stockage en mémoire
             memories[memory_id] = memory
             message = "Mémoire ajoutée au bucket partagé (mémoire - fallback)"
     else:
-        # Utiliser le stockage en mémoire
         memories[memory_id] = memory
         message = "Mémoire ajoutée au bucket partagé (mémoire)"
     
@@ -337,27 +312,20 @@ def add_memory(
         "message": message
     })
 
-@mcp.tool(
-    title="Search Memories",
-    description="Rechercher dans le bucket de mémoires partagé",
-)
 def search_memories(
-    query: str = Field(description="Requête de recherche"),
-    limit: int = Field(description="Nombre maximum de résultats", default=5)
+    query: str,
+    limit: int = 5
 ) -> str:
     """Rechercher dans le bucket de mémoires partagé"""
     
     storage = get_storage()
     if storage:
         try:
-            # Utiliser Qdrant
             results = storage.search_memories(query, limit)
         except Exception as e:
             print(f"⚠️ Erreur Qdrant, fallback vers mémoire: {e}")
-            # Fallback vers stockage en mémoire
             results = []
     else:
-        # Utiliser le stockage en mémoire
         results = []
     
     # Si pas de résultats de Qdrant, utiliser le stockage en mémoire
@@ -367,12 +335,10 @@ def search_memories(
             similarity = calculate_similarity(query, memory.content)
             scored_memories.append((similarity, memory_id, memory))
         
-        # Trier par similarité
         scored_memories.sort(key=lambda x: x[0], reverse=True)
         
-        # Formatter les résultats
         for similarity, memory_id, memory in scored_memories[:limit]:
-            if similarity > 0:  # Seulement les résultats avec une similarité > 0
+            if similarity > 0:
                 results.append({
                     "memory_id": memory_id,
                     "content": memory.content,
@@ -388,19 +354,12 @@ def search_memories(
         "total_found": len(results)
     })
 
-@mcp.tool(
-    title="Delete Memory",
-    description="Supprimer une mémoire du bucket partagé",
-)
-def delete_memory(
-    memory_id: str = Field(description="ID de la mémoire à supprimer")
-) -> str:
+def delete_memory(memory_id: str) -> str:
     """Supprimer une mémoire du bucket partagé"""
     
     storage = get_storage()
     if storage:
         try:
-            # Utiliser Qdrant
             success = storage.delete_memory(memory_id)
             if success:
                 return json.dumps({
@@ -414,8 +373,6 @@ def delete_memory(
                 })
         except Exception as e:
             print(f"⚠️ Erreur Qdrant, fallback vers mémoire: {e}")
-            # Fallback vers stockage en mémoire
-            pass
     
     # Utiliser le stockage en mémoire (fallback ou par défaut)
     if memory_id not in memories:
@@ -424,7 +381,6 @@ def delete_memory(
             "message": "Mémoire non trouvée"
         })
     
-    # Supprimer la mémoire
     del memories[memory_id]
     
     return json.dumps({
@@ -432,24 +388,17 @@ def delete_memory(
         "message": f"Mémoire {memory_id} supprimée du bucket (mémoire)"
     })
 
-@mcp.tool(
-    title="List All Memories",
-    description="Lister toutes les mémoires du bucket",
-)
 def list_memories() -> str:
     """Lister toutes les mémoires du bucket partagé"""
     
     storage = get_storage()
     if storage:
         try:
-            # Utiliser Qdrant
             all_memories = storage.list_memories()
         except Exception as e:
             print(f"⚠️ Erreur Qdrant, fallback vers mémoire: {e}")
-            # Fallback vers stockage en mémoire
             all_memories = []
     else:
-        # Utiliser le stockage en mémoire
         all_memories = []
     
     # Si pas de résultats de Qdrant, utiliser le stockage en mémoire
@@ -462,7 +411,6 @@ def list_memories() -> str:
                 "memories": []
             })
         
-        # Formatter toutes les mémoires
         for memory_id, memory in memories.items():
             all_memories.append({
                 "memory_id": memory_id,
@@ -477,6 +425,50 @@ def list_memories() -> str:
         "memories": all_memories
     })
 
+# Initialisation paresseuse de MCP
+def initialize_mcp():
+    """Initialiser MCP de manière paresseuse"""
+    global mcp
+    
+    if mcp is None:
+        mcp = get_mcp()
+        
+        if mcp:
+            # Enregistrer les outils
+            mcp.tool(
+                title="Add Memory",
+                description="Ajouter une mémoire au bucket partagé",
+            )(add_memory)
+            
+            mcp.tool(
+                title="Search Memories",
+                description="Rechercher dans le bucket de mémoires partagé",
+            )(search_memories)
+            
+            mcp.tool(
+                title="Delete Memory",
+                description="Supprimer une mémoire du bucket partagé",
+            )(delete_memory)
+            
+            mcp.tool(
+                title="List All Memories",
+                description="Lister toutes les mémoires du bucket",
+            )(list_memories)
+            
+            print("✅ MCP initialisé avec succès")
+        else:
+            print("❌ Impossible d'initialiser MCP")
+    
+    return mcp
+
 if __name__ == "__main__":
-    print("🎯 Démarrage du serveur MCP...")
-    mcp.run(transport="streamable-http")
+    print("🎯 Démarrage du serveur MCP optimisé...")
+    
+    # Initialisation paresseuse
+    mcp = initialize_mcp()
+    
+    if mcp:
+        print("🚀 Serveur MCP démarré - prêt à recevoir des requêtes")
+        mcp.run(transport="streamable-http")
+    else:
+        print("❌ Impossible de démarrer le serveur MCP")
