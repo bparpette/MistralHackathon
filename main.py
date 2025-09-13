@@ -10,22 +10,43 @@ from datetime import datetime
 from typing import List, Dict, Optional
 
 # Import paresseux pour optimiser le démarrage Lambda
-try:
-    import requests
-    print("✅ Module requests importé au démarrage")
-except ImportError:
-    requests = None
-    print("❌ Module requests non disponible au démarrage")
+requests = None
+urllib = None
 
-# Fallback vers urllib si requests n'est pas disponible
-try:
-    import urllib.request
-    import urllib.parse
-    import urllib.error
-    import json as json_module
-    print("✅ Module urllib disponible comme fallback")
-except ImportError:
-    print("❌ Module urllib non disponible")
+def ensure_requests():
+    """Import paresseux de requests"""
+    global requests
+    if requests is None:
+        try:
+            import requests
+            if not IS_LAMBDA:
+                print("✅ Module requests importé")
+        except ImportError:
+            requests = None
+            if not IS_LAMBDA:
+                print("❌ Module requests non disponible")
+
+def ensure_urllib():
+    """Import paresseux de urllib"""
+    global urllib
+    if urllib is None:
+        try:
+            import urllib.request
+            import urllib.parse
+            import urllib.error
+            import json as json_module
+            urllib = {
+                'request': urllib.request,
+                'parse': urllib.parse,
+                'error': urllib.error,
+                'json': json_module
+            }
+            if not IS_LAMBDA:
+                print("✅ Module urllib disponible comme fallback")
+        except ImportError:
+            urllib = None
+            if not IS_LAMBDA:
+                print("❌ Module urllib non disponible")
 
 QDRANT_AVAILABLE = False
 QdrantClient = None
@@ -80,26 +101,13 @@ def get_mcp():
     """Import paresseux de FastMCP - optimisé pour Lambda"""
     try:
         from mcp.server.fastmcp import FastMCP
-        from fastapi import Depends, HTTPException, status
-        from fastapi.security import OAuth2PasswordBearer
-        
-        # Configuration OAuth2 pour récupérer le token Bearer
-        oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-        
-        # Configuration optimisée pour Lambda
-        mcp_instance = FastMCP(
+        # Configuration optimisée pour Lambda - pas d'imports FastAPI au démarrage
+        return FastMCP(
             "Collective Brain Server", 
             port=3000, 
             stateless_http=True, 
             debug=False
         )
-        
-        # Ajouter une route FastAPI pour récupérer le token
-        @mcp_instance._app.get("/token")
-        async def get_token():
-            return {"access_token": "dummy", "token_type": "bearer"}
-        
-        return mcp_instance
     except ImportError:
         if not IS_LAMBDA:
             print("❌ FastMCP non disponible")
@@ -118,13 +126,13 @@ def get_request_headers() -> dict:
     return current_request_headers
 
 def get_current_user_token(token: str = None):
-    """Récupérer le token utilisateur via OAuth2PasswordBearer"""
+    """Récupérer le token utilisateur (simplifié pour Lambda)"""
     try:
         if not token:
             print("⚠️ Token non fourni")
             return ""
         
-        print(f"🔍 Token reçu via OAuth2: {token[:10]}...")
+        print(f"🔍 Token reçu: {token[:10]}...")
         
         # Nettoyer le token si nécessaire
         if token.startswith("Bearer "):
@@ -134,7 +142,7 @@ def get_current_user_token(token: str = None):
         return token
         
     except Exception as e:
-        print(f"❌ Erreur récupération token OAuth2: {e}")
+        print(f"❌ Erreur récupération token: {e}")
         return ""
 
 def extract_token_from_context(ctx):
@@ -280,23 +288,29 @@ def generate_embedding(text: str) -> List[float]:
 
 def verify_user_token(user_token: str) -> Optional[Dict]:
     """Vérifier un token utilisateur via Supabase (obligatoire)"""
-    print(f"🔍 Début vérification token: {user_token[:10]}...")
+    if not IS_LAMBDA:
+        print(f"🔍 Début vérification token: {user_token[:10]}...")
     
     if not SUPABASE_SERVICE_KEY:
-        print("❌ Supabase non configuré - authentification obligatoire")
+        if not IS_LAMBDA:
+            print("❌ Supabase non configuré - authentification obligatoire")
         return None
     
     try:
         # Si c'est un token Bearer, enlever le préfixe
         if user_token.startswith("Bearer "):
             user_token = user_token[7:]
-            print(f"🔍 Token nettoyé: {user_token[:10]}...")
+            if not IS_LAMBDA:
+                print(f"🔍 Token nettoyé: {user_token[:10]}...")
         
-        print(f"🔍 Appel Supabase: {SUPABASE_URL}/rest/v1/rpc/verify_user_token")
+        if not IS_LAMBDA:
+            print(f"🔍 Appel Supabase: {SUPABASE_URL}/rest/v1/rpc/verify_user_token")
         
         # Utiliser requests si disponible, sinon urllib
+        ensure_requests()
         if requests is not None:
-            print("🔍 Utilisation de requests")
+            if not IS_LAMBDA:
+                print("🔍 Utilisation de requests")
             response = requests.post(
                 f"{SUPABASE_URL}/rest/v1/rpc/verify_user_token",
                 headers={
@@ -310,33 +324,44 @@ def verify_user_token(user_token: str) -> Optional[Dict]:
             status_code = response.status_code
             response_text = response.text
         else:
-            print("🔍 Utilisation de urllib (fallback)")
-            # Utiliser urllib comme fallback
-            data = json.dumps({"token": user_token}).encode('utf-8')
-            req = urllib.request.Request(
-                f"{SUPABASE_URL}/rest/v1/rpc/verify_user_token",
-                data=data,
-                headers={
-                    "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
-                    "Content-Type": "application/json",
-                    "apikey": SUPABASE_SERVICE_KEY
-                }
-            )
-            response = urllib.request.urlopen(req, timeout=3)
-            status_code = response.getcode()
-            response_text = response.read().decode('utf-8')
+            if not IS_LAMBDA:
+                print("🔍 Utilisation de urllib (fallback)")
+            ensure_urllib()
+            if urllib is not None:
+                # Utiliser urllib comme fallback
+                data = json.dumps({"token": user_token}).encode('utf-8')
+                req = urllib['request'].Request(
+                    f"{SUPABASE_URL}/rest/v1/rpc/verify_user_token",
+                    data=data,
+                    headers={
+                        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                        "Content-Type": "application/json",
+                        "apikey": SUPABASE_SERVICE_KEY
+                    }
+                )
+                response = urllib['request'].urlopen(req, timeout=3)
+                status_code = response.getcode()
+                response_text = response.read().decode('utf-8')
+            else:
+                if not IS_LAMBDA:
+                    print("❌ Aucun module HTTP disponible")
+                return None
         
-        print(f"🔍 Réponse Supabase: {status_code}")
-        print(f"🔍 Contenu de la réponse: {response_text}")
+        if not IS_LAMBDA:
+            print(f"🔍 Réponse Supabase: {status_code}")
+            print(f"🔍 Contenu de la réponse: {response_text}")
         
         if status_code == 200:
             data = json.loads(response_text)
-            print(f"🔍 Données reçues: {data}")
+            if not IS_LAMBDA:
+                print(f"🔍 Données reçues: {data}")
             if data and len(data) > 0:
-                print(f"✅ Token valide pour utilisateur: {data[0]}")
+                if not IS_LAMBDA:
+                    print(f"✅ Token valide pour utilisateur: {data[0]}")
                 return data[0]
         
-        print(f"❌ Token invalide: {user_token[:10]}... (status: {status_code})")
+        if not IS_LAMBDA:
+            print(f"❌ Token invalide: {user_token[:10]}... (status: {status_code})")
         return None
         
     except Exception as e:
@@ -583,17 +608,20 @@ def add_memory(
     """Ajouter une mémoire au cerveau collectif avec authentification"""
     
     # Récupérer le token via OAuth2PasswordBearer
-    print("🔍 Récupération du token via OAuth2PasswordBearer...")
+    if not IS_LAMBDA:
+        print("🔍 Récupération du token via OAuth2PasswordBearer...")
     user_token = get_current_user_token(token)
     
     # Fallback vers l'ancienne méthode
     if not user_token:
-        print("🔍 Fallback vers extract_token_from_headers...")
+        if not IS_LAMBDA:
+            print("🔍 Fallback vers extract_token_from_headers...")
         user_token = extract_token_from_headers()
     
     # MODE TEST: Si aucun token trouvé, utiliser le token de test
     if not user_token:
-        print("🧪 MODE TEST: Utilisation du token de test")
+        if not IS_LAMBDA:
+            print("🧪 MODE TEST: Utilisation du token de test")
         user_token = "user_d8a7996df3c777e9ac2914ef16d5b501"
     
     if not user_token:
@@ -603,10 +631,12 @@ def add_memory(
         })
     
     # Vérifier le token utilisateur
-    print(f"🔍 Vérification du token: {user_token[:10]}...")
+    if not IS_LAMBDA:
+        print(f"🔍 Vérification du token: {user_token[:10]}...")
     user_info = verify_user_token(user_token)
     if not user_info:
-        print(f"❌ Token invalide ou erreur de vérification: {user_token[:10]}...")
+        if not IS_LAMBDA:
+            print(f"❌ Token invalide ou erreur de vérification: {user_token[:10]}...")
         return json.dumps({
             "status": "error",
             "message": f"Token utilisateur invalide: {user_token[:10]}..."
