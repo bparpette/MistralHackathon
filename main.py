@@ -22,30 +22,16 @@ if not os.path.exists('.env') and os.path.exists('config.env.example'):
                 if key not in os.environ:
                     os.environ[key] = value
 
-# Détection environnement Lambda
-IS_LAMBDA = os.getenv("AWS_LAMBDA_FUNCTION_NAME") is not None
-
-# Configuration Qdrant
+# Configuration Qdrant - laisser le MCP Provider gérer
 QDRANT_URL = os.getenv("QDRANT_URL")  # Ex: https://your-cluster.qdrant.tech
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")  # Votre clé API Qdrant
-QDRANT_ENABLED = os.getenv("QDRANT_ENABLED", "false").lower() == "true"  # Désactivé par défaut pour éviter les timeouts
+QDRANT_ENABLED = os.getenv("QDRANT_ENABLED", "false").lower() == "true"
 
-# En production Lambda, désactiver Qdrant par défaut pour éviter les timeouts
-if IS_LAMBDA and not QDRANT_ENABLED:
-    QDRANT_URL = None
-    QDRANT_API_KEY = None
-    print("🚀 Environnement Lambda détecté - Qdrant désactivé par défaut")
-
-# En production, forcer Qdrant à false si pas explicitement activé
-if not QDRANT_ENABLED:
-    QDRANT_URL = None
-    QDRANT_API_KEY = None
-
+# Utiliser Qdrant si configuré et activé
 USE_QDRANT = bool(QDRANT_URL and QDRANT_API_KEY and QDRANT_ENABLED)
 
 # Debug de la configuration
 print(f"🔧 Configuration Qdrant:")
-print(f"   IS_LAMBDA: {IS_LAMBDA}")
 print(f"   QDRANT_ENABLED: {QDRANT_ENABLED}")
 print(f"   QDRANT_URL: {QDRANT_URL}")
 print(f"   QDRANT_API_KEY: {'***' if QDRANT_API_KEY else 'None'}")
@@ -116,7 +102,7 @@ class QdrantStorage:
         self._init_attempted = False
     
     def _ensure_connected(self):
-        """S'assurer que la connexion Qdrant est établie avec gestion d'erreur pour Lambda"""
+        """S'assurer que la connexion Qdrant est établie avec gestion d'erreur robuste"""
         if not self._initialized and not self._init_attempted:
             self._init_attempted = True
             try:
@@ -124,7 +110,7 @@ class QdrantStorage:
                 self.client = QdrantClient(
                     url=QDRANT_URL,
                     api_key=QDRANT_API_KEY,
-                    timeout=10  # Timeout court pour Lambda
+                    timeout=15  # Timeout raisonnable
                 )
                 self._init_collection()
                 self._initialized = True
