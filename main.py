@@ -76,18 +76,29 @@ def get_mcp():
 def extract_token_from_headers():
     """Extraire le token Bearer depuis les headers HTTP"""
     try:
+        # Debug: afficher tous les headers disponibles
+        print("=== DEBUG HEADERS ===")
+        for key, value in os.environ.items():
+            if "AUTH" in key.upper() or "HEADER" in key.upper() or "HTTP" in key.upper():
+                print(f"{key}: {value}")
+        print("====================")
+        
         # En Lambda, les headers sont disponibles via les variables d'environnement
         auth_header = os.getenv("HTTP_AUTHORIZATION", "")
         if auth_header.startswith("Bearer "):
+            print(f"✅ Token trouvé dans HTTP_AUTHORIZATION: {auth_header[7:]}")
             return auth_header[7:]  # Enlever "Bearer "
         
         # Fallback: chercher dans d'autres variables d'environnement
         for key, value in os.environ.items():
             if "AUTHORIZATION" in key.upper() and value.startswith("Bearer "):
+                print(f"✅ Token trouvé dans {key}: {value[7:]}")
                 return value[7:]
         
+        print("❌ Aucun token Bearer trouvé")
         return ""
-    except Exception:
+    except Exception as e:
+        print(f"❌ Erreur extraction token: {e}")
         return ""
 
 # Modèle de données enrichi pour le cerveau collectif
@@ -425,7 +436,9 @@ def add_memory(
     
     # Si pas de token fourni, essayer de le récupérer depuis les headers
     if not user_token:
+        print("🔍 Aucun token fourni, recherche dans les headers...")
         user_token = extract_token_from_headers()
+        print(f"🔍 Token extrait: {user_token[:10]}..." if user_token else "🔍 Aucun token trouvé")
     
     if not user_token:
         return json.dumps({

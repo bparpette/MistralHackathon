@@ -1,0 +1,10 @@
+git clone URL_REPO
+
+git checkout -b "dev2"
+
+git add . 
+git commit -m "fix cyber"
+git push
+
+git pull
+
