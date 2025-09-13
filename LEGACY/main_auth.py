@@ -1,6 +1,6 @@
 """
-MCP Collective Brain Server - Version avec isolation par équipe
-Système de mémoire collective multi-tenant avec collections séparées
+MCP Collective Brain Server - Version avec authentification Supabase
+Système de mémoire collective multi-tenant avec isolation par équipe
 """
 
 import os
@@ -9,16 +9,6 @@ import json
 import requests
 from datetime import datetime
 from typing import List, Dict, Optional
-
-# Charger les variables d'environnement depuis config.env.example si .env n'existe pas
-if not os.path.exists('.env') and os.path.exists('config.env.example'):
-    with open('config.env.example', 'r') as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith('#') and '=' in line:
-                key, value = line.split('=', 1)
-                if key not in os.environ:
-                    os.environ[key] = value
 
 # Configuration Supabase
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://hzoggayzniyxlbwxchcx.supabase.co")
@@ -175,7 +165,6 @@ class QdrantStorage:
                     api_key=QDRANT_API_KEY,
                     timeout=3  # Timeout très court pour Lambda
                 )
-                self._init_collection()
                 self._initialized = True
                 print("✅ Qdrant connecté")
             except Exception as e:
