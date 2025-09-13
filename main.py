@@ -24,7 +24,7 @@ except ImportError:
     print("⚠️ Qdrant non disponible - utilisation du stockage en mémoire")
 
 # Configuration
-mcp = FastMCP("Collective Brain Server", port=3000, stateless_http=True, debug=True)
+mcp = FastMCP("Collective Brain Server", port=3000, stateless_http=True, debug=False)
 
 # Modèles de données
 class Memory(BaseModel):
@@ -56,25 +56,28 @@ class CollectiveBrainStorage:
     """Gestionnaire de stockage pour le cerveau collectif"""
     
     def __init__(self):
-        self.use_qdrant = QDRANT_AVAILABLE and os.getenv("QDRANT_URL")
+        self.use_qdrant = False  # Désactiver Qdrant par défaut pour le déploiement
+        self.client = None
+        self.collection_name = "collective_memories"
         
-        if self.use_qdrant:
+        # Essayer de se connecter à Qdrant seulement si explicitement configuré
+        qdrant_url = os.getenv("QDRANT_URL")
+        if QDRANT_AVAILABLE and qdrant_url and qdrant_url != "http://localhost:6333":
             try:
-                qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
                 qdrant_api_key = os.getenv("QDRANT_API_KEY")
                 
                 self.client = QdrantClient(
                     url=qdrant_url,
                     api_key=qdrant_api_key if qdrant_api_key else None
                 )
-                self.collection_name = "collective_memories"
                 self._init_collection()
+                self.use_qdrant = True
                 print("✅ Qdrant connecté avec succès")
             except Exception as e:
                 print(f"⚠️ Erreur connexion Qdrant: {e} - utilisation du stockage en mémoire")
                 self.use_qdrant = False
         else:
-            print("📝 Utilisation du stockage en mémoire")
+            print("📝 Utilisation du stockage en mémoire (Qdrant non configuré)")
     
     def _init_collection(self):
         """Initialiser la collection Qdrant"""
@@ -258,8 +261,15 @@ class CollectiveBrainStorage:
         
         return []
 
-# Initialiser le stockage
-storage = CollectiveBrainStorage()
+# Initialiser le stockage de manière paresseuse
+storage = None
+
+def get_storage():
+    """Obtenir l'instance de stockage (initialisation paresseuse)"""
+    global storage
+    if storage is None:
+        storage = CollectiveBrainStorage()
+    return storage
 
 def generate_embedding(text: str) -> List[float]:
     """Génère un embedding simple basé sur le hash du texte (placeholder)"""
@@ -322,11 +332,11 @@ def store_memory(
     )
     
     # Stocker via le système de stockage
-    memory_id = storage.store_memory(memory)
+    memory_id = get_storage().store_memory(memory)
     
     # Trouver des mémoires similaires
     related_memories = []
-    if not storage.use_qdrant:
+    if not get_storage().use_qdrant:
         # Fallback pour le stockage en mémoire
         for mid, existing_memory in collective_memories.items():
             if (mid != memory_id and 
@@ -357,7 +367,7 @@ def search_memories(
     """Rechercher dans la mémoire collective avec filtres"""
     
     # Utiliser le système de stockage pour la recherche
-    results = storage.search_memories(
+    results = get_storage().search_memories(
         query=query,
         workspace_id=workspace_id,
         user_id=user_id,
