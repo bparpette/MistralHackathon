@@ -14,14 +14,8 @@ from mcp.server.fastmcp import FastMCP
 from pydantic import Field, BaseModel
 import mcp.types as types
 
-# Import Qdrant (optionnel)
-try:
-    from qdrant_client import QdrantClient
-    from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
-    QDRANT_AVAILABLE = True
-except ImportError:
-    QDRANT_AVAILABLE = False
-    print("⚠️ Qdrant non disponible - utilisation du stockage en mémoire")
+# Import Qdrant (optionnel) - désactivé pour le déploiement
+QDRANT_AVAILABLE = False
 
 # Configuration
 mcp = FastMCP("Collective Brain Server", port=3000, stateless_http=True, debug=False)
@@ -56,86 +50,22 @@ class CollectiveBrainStorage:
     """Gestionnaire de stockage pour le cerveau collectif"""
     
     def __init__(self):
-        self.use_qdrant = False  # Désactiver Qdrant par défaut pour le déploiement
-        self.client = None
-        self.collection_name = "collective_memories"
-        
-        # Essayer de se connecter à Qdrant seulement si explicitement configuré
-        qdrant_url = os.getenv("QDRANT_URL")
-        if QDRANT_AVAILABLE and qdrant_url and qdrant_url != "http://localhost:6333":
-            try:
-                qdrant_api_key = os.getenv("QDRANT_API_KEY")
-                
-                self.client = QdrantClient(
-                    url=qdrant_url,
-                    api_key=qdrant_api_key if qdrant_api_key else None
-                )
-                self._init_collection()
-                self.use_qdrant = True
-                print("✅ Qdrant connecté avec succès")
-            except Exception as e:
-                print(f"⚠️ Erreur connexion Qdrant: {e} - utilisation du stockage en mémoire")
-                self.use_qdrant = False
-        else:
-            print("📝 Utilisation du stockage en mémoire (Qdrant non configuré)")
+        self.use_qdrant = False  # Désactivé pour le déploiement
+        print("📝 Utilisation du stockage en mémoire (mode déploiement)")
     
     def _init_collection(self):
-        """Initialiser la collection Qdrant"""
-        try:
-            self.client.create_collection(
-                collection_name=self.collection_name,
-                vectors_config=VectorParams(
-                    size=384,  # Taille pour all-MiniLM-L6-v2
-                    distance=Distance.COSINE
-                )
-            )
-            print(f"✅ Collection '{self.collection_name}' créée")
-        except Exception as e:
-            # Collection existe déjà
-            pass
+        """Initialiser la collection Qdrant - désactivé"""
+        pass
     
     def store_memory(self, memory: Memory) -> str:
         """Stocker une mémoire"""
         memory_id = hashlib.md5(f"{memory.content}{memory.timestamp}{memory.user_id}".encode()).hexdigest()
         
-        if self.use_qdrant:
-            try:
-                # Générer l'embedding
-                embedding = generate_embedding(memory.content)
-                
-                # Créer le point
-                point = PointStruct(
-                    id=memory_id,
-                    vector=embedding,
-                    payload={
-                        "content": memory.content,
-                        "user_id": memory.user_id,
-                        "workspace_id": memory.workspace_id,
-                        "category": memory.category,
-                        "tags": memory.tags,
-                        "visibility": memory.visibility,
-                        "confidence": memory.confidence,
-                        "timestamp": memory.timestamp,
-                        "interactions": memory.interactions,
-                        "verified_by": memory.verified_by
-                    }
-                )
-                
-                self.client.upsert(
-                    collection_name=self.collection_name,
-                    points=[point]
-                )
-                
-            except Exception as e:
-                print(f"⚠️ Erreur stockage Qdrant: {e} - fallback en mémoire")
-                self.use_qdrant = False
-        
-        # Fallback en mémoire
-        if not self.use_qdrant:
-            collective_memories[memory_id] = memory
-            if memory.workspace_id not in workspace_memories:
-                workspace_memories[memory.workspace_id] = []
-            workspace_memories[memory.workspace_id].append(memory_id)
+        # Stockage en mémoire uniquement
+        collective_memories[memory_id] = memory
+        if memory.workspace_id not in workspace_memories:
+            workspace_memories[memory.workspace_id] = []
+        workspace_memories[memory.workspace_id].append(memory_id)
         
         return memory_id
     
@@ -143,123 +73,60 @@ class CollectiveBrainStorage:
                        category_filter: str = "", visibility_filter: str = "") -> List[Dict]:
         """Rechercher des mémoires"""
         
-        if self.use_qdrant:
-            try:
-                query_embedding = generate_embedding(query)
-                
-                # Construire les filtres
-                must_conditions = [
-                    FieldCondition(key="workspace_id", match=MatchValue(value=workspace_id))
-                ]
-                
-                # Filtres de visibilité
-                should_conditions = [
-                    FieldCondition(key="visibility", match=MatchValue(value="team")),
-                    FieldCondition(key="visibility", match=MatchValue(value="public")),
-                    FieldCondition(key="user_id", match=MatchValue(value=user_id))
-                ]
-                
-                if category_filter:
-                    must_conditions.append(
-                        FieldCondition(key="category", match=MatchValue(value=category_filter))
-                    )
-                
-                if visibility_filter:
-                    must_conditions.append(
-                        FieldCondition(key="visibility", match=MatchValue(value=visibility_filter))
-                    )
-                
-                results = self.client.search(
-                    collection_name=self.collection_name,
-                    query_vector=query_embedding,
-                    query_filter=Filter(
-                        must=must_conditions,
-                        should=should_conditions
-                    ),
-                    limit=limit,
-                    with_payload=True
-                )
-                
-                # Formatter les résultats
-                formatted_results = []
-                for result in results:
-                    formatted_results.append({
-                        "content": result.payload["content"],
-                        "author": result.payload["user_id"],
-                        "category": result.payload["category"],
-                        "tags": result.payload["tags"],
-                        "timestamp": result.payload["timestamp"],
-                        "relevance_score": round(result.score, 3),
-                        "confidence": result.payload["confidence"],
-                        "verified_by": result.payload.get("verified_by", []),
-                        "interactions": result.payload.get("interactions", 0),
-                        "visibility": result.payload["visibility"]
-                    })
-                
-                return formatted_results
-                
-            except Exception as e:
-                print(f"⚠️ Erreur recherche Qdrant: {e} - fallback en mémoire")
-                self.use_qdrant = False
+        workspace_memory_ids = workspace_memories.get(workspace_id, [])
+        accessible_memories = []
         
-        # Fallback en mémoire
-        if not self.use_qdrant:
-            workspace_memory_ids = workspace_memories.get(workspace_id, [])
-            accessible_memories = []
-            
-            for memory_id in workspace_memory_ids:
-                memory = collective_memories.get(memory_id)
-                if not memory:
-                    continue
-                    
-                can_access = (
-                    memory.visibility == "public" or
-                    memory.visibility == "team" or
-                    memory.user_id == user_id
-                )
+        for memory_id in workspace_memory_ids:
+            memory = collective_memories.get(memory_id)
+            if not memory:
+                continue
                 
-                if can_access:
-                    accessible_memories.append(memory)
+            can_access = (
+                memory.visibility == "public" or
+                memory.visibility == "team" or
+                memory.user_id == user_id
+            )
             
-            # Appliquer les filtres
-            filtered_memories = accessible_memories
-            
-            if category_filter:
-                filtered_memories = [m for m in filtered_memories if m.category == category_filter]
-            
-            if visibility_filter:
-                filtered_memories = [m for m in filtered_memories if m.visibility == visibility_filter]
-            
-            # Calculer la similarité et trier
-            scored_memories = []
-            for memory in filtered_memories:
-                similarity = calculate_similarity(query, memory.content)
-                score = similarity * memory.confidence
-                scored_memories.append((score, memory))
-            
-            scored_memories.sort(key=lambda x: x[0], reverse=True)
-            
-            # Formatter les résultats
-            results = []
-            for score, memory in scored_memories[:limit]:
-                memory.interactions += 1
-                
-                results.append({
-                    "content": memory.content,
-                    "author": memory.user_id,
-                    "category": memory.category,
-                    "tags": memory.tags,
-                    "timestamp": memory.timestamp,
-                    "relevance_score": round(score, 3),
-                    "confidence": memory.confidence,
-                    "verified_by": memory.verified_by,
-                    "interactions": memory.interactions,
-                    "visibility": memory.visibility
-                })
-            
-            return results
+            if can_access:
+                accessible_memories.append(memory)
         
-        return []
+        # Appliquer les filtres
+        filtered_memories = accessible_memories
+        
+        if category_filter:
+            filtered_memories = [m for m in filtered_memories if m.category == category_filter]
+        
+        if visibility_filter:
+            filtered_memories = [m for m in filtered_memories if m.visibility == visibility_filter]
+        
+        # Calculer la similarité et trier
+        scored_memories = []
+        for memory in filtered_memories:
+            similarity = calculate_similarity(query, memory.content)
+            score = similarity * memory.confidence
+            scored_memories.append((score, memory))
+        
+        scored_memories.sort(key=lambda x: x[0], reverse=True)
+        
+        # Formatter les résultats
+        results = []
+        for score, memory in scored_memories[:limit]:
+            memory.interactions += 1
+            
+            results.append({
+                "content": memory.content,
+                "author": memory.user_id,
+                "category": memory.category,
+                "tags": memory.tags,
+                "timestamp": memory.timestamp,
+                "relevance_score": round(score, 3),
+                "confidence": memory.confidence,
+                "verified_by": memory.verified_by,
+                "interactions": memory.interactions,
+                "visibility": memory.visibility
+            })
+        
+        return results
 
 # Initialiser le stockage de manière paresseuse
 storage = None
