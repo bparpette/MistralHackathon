@@ -44,9 +44,10 @@ IS_LAMBDA = (
 )
 
 # En Lambda, mode paresseux pour éviter les timeouts
-if IS_LAMBDA and QDRANT_ENABLED:
-    # Pas de log en Lambda pour optimiser le démarrage
-    USE_QDRANT = True
+if IS_LAMBDA:
+    # En Lambda, on désactive Qdrant au démarrage pour éviter les timeouts
+    # Il sera activé seulement quand nécessaire
+    USE_QDRANT = False
 else:
     USE_QDRANT = bool(QDRANT_URL and QDRANT_API_KEY and QDRANT_ENABLED)
 
@@ -65,10 +66,7 @@ def get_mcp():
             "Collective Brain Server", 
             port=3000, 
             stateless_http=True, 
-            debug=False,
-            # Optimisations Lambda
-            timeout=25,  # Moins que le timeout Lambda de 30s
-            keep_alive=False
+            debug=False
         )
     except ImportError:
         if not IS_LAMBDA:
@@ -186,6 +184,14 @@ class QdrantStorage:
         """Connexion paresseuse avec timeout court"""
         if not self._initialized and not self._init_attempted:
             self._init_attempted = True
+            
+            # En Lambda, on active Qdrant seulement quand nécessaire
+            if IS_LAMBDA and not QDRANT_ENABLED:
+                # Vérifier si Qdrant est configuré
+                if QDRANT_URL and QDRANT_API_KEY:
+                    # Activer Qdrant dynamiquement
+                    global USE_QDRANT
+                    USE_QDRANT = True
             
             # Import paresseux
             ensure_qdrant_import()
