@@ -1,130 +1,103 @@
-# Alpic MCP Template
+# mcp-server-template-python
 
-A TypeScript template for building MCP servers using Streamable HTTP transport.
+A very simple Python template for building MCP servers using Streamable HTTP transport.
 
 ## Overview
-
-This template provides a foundation for creating MCP servers that can communicate with AI assistants and other MCP clients. It includes a simple HTTP server implementation with example tools, resource & prompts to help you get started building your own MCP integrations.
+This template provides a foundation for creating MCP servers that can communicate with AI assistants and other MCP clients. It includes a simple HTTP server implementation with example tools, resources & prompts to help you get started building your own MCP integrations.
 
 ## Prerequisites
-
-- Node.js 22+ (see `.nvmrc` for exact version)
+- Install uv (https://docs.astral.sh/uv/getting-started/installation/)
 
 ## Installation
 
 1. Clone the repository:
 
 ```bash
-git clone <repository-url>
-cd mcp-server-template
+git clone git@github.com:alpic-ai/mcp-server-template-python.git
+cd mcp-server-template-python
 ```
 
-2. Install dependencies:
+2. Install python version & dependencies:
 
 ```bash
-npm install
-```
-
-3. Create environment file:
-
-```bash
-cp .env.example .env
+uv python install
+uv sync --locked
 ```
 
 ## Usage
 
-### Development
-
-Start the development server with hot-reload:
+Start the server on port 3000:
 
 ```bash
-npm run dev
+uv run main.py
 ```
 
-The server will start on `http://localhost:3000` and automatically restart when you make changes to the source code.
+## Running the Inspector
 
-### Production Build
+### Requirements
+- Node.js: ^22.7.5
 
-Build the project for production:
-
+### Quick Start (UI mode)
+To get up and running right away with the UI, just execute the following:
 ```bash
-npm run build
+npx @modelcontextprotocol/inspector
 ```
 
-The compiled JavaScript will be output to the `dist/` directory.
+The inspector server will start up and the UI will be accessible at http://localhost:6274.
 
-### Running the Inspector
-
-Use the MCP inspector tool to test your server:
-
-```bash
-npm run inspector
-```
-
-## API Endpoints
-
-- `POST /mcp` - Main MCP communication endpoint
-- `GET /mcp` - Returns "Method not allowed" (405)
-- `DELETE /mcp` - Returns "Method not allowed" (405)
+You can test your server locally by selecting:
+- Transport Type: Streamable HTTP
+- URL: http://127.0.0.1:3000/mcp
 
 ## Development
 
 ### Adding New Tools
 
-To add a new tool, modify `src/server.ts`:
+To add a new tool, modify `main.py`:
 
-```typescript
-server.tool(
-  "tool-name",
-  "Tool description",
-  {
-    // Define your parameters using Zod schemas
-    param: z.string().describe("Parameter description"),
-  },
-  async ({ param }): Promise<CallToolResult> => {
-    // Your tool implementation
-    return {
-      content: [
-        {
-          type: "text",
-          text: `Result: ${param}`,
-        },
-      ],
-    };
-  },
-);
+```python
+@mcp.tool(
+    title="Your Tool Name",
+    description="Tool Description for the LLM",
+)
+async def new_tool(
+    tool_param1: str = Field(description="The description of the param1 for the LLM"), 
+    tool_param2: float = Field(description="The description of the param2 for the LLM") 
+)-> str:
+    """The new tool underlying method"""
+    result = await some_api_call(tool_param1, tool_param2)
+    return result
 ```
+
+### Adding New Resources
+
+To add a new resource, modify `main.py`:
+
+```python
+@mcp.resource(
+    uri="your-scheme://{param1}/{param2}",
+    description="Description of what this resource provides",
+    name="Your Resource Name",
+)
+def your_resource(param1: str, param2: str) -> str:
+    """The resource template implementation"""
+    # Your resource logic here
+    return f"Resource content for {param1} and {param2}"
+```
+
+The URI template uses `{param_name}` syntax to define parameters that will be extracted from the resource URI and passed to your function.
 
 ### Adding New Prompts
 
-To add a new prompt template, modify `src/server.ts`:
+To add a new prompt , modify `main.py`:
 
-```typescript
-server.prompt(
-  "prompt-name",
-  "Prompt description",
-  {
-    // Define your parameters using Zod schemas
-    param: z.string().describe("Parameter description"),
-  },
-  async ({ param }): Promise<GetPromptResult> => {
-    return {
-      messages: [
-        {
-          role: "user",
-          content: {
-            type: "text",
-            text: `Your prompt content with ${param}`,
-          },
-        },
-      ],
-    };
-  },
-);
+```python
+@mcp.prompt("")
+async def your_prompt(
+    prompt_param: str = Field(description="The description of the param for the user")
+) -> str:
+    """Generate a helpful prompt"""
+
+    return f"You are a friendly assistant, help the user and don't forget to {prompt_param}."
+
 ```
-
-## Resources
-
-- [Model Context Protocol Documentation](https://modelcontextprotocol.io/)
-- [MCP SDK Documentation](https://github.com/modelcontextprotocol/typescript-sdk)
-- [Express.js Documentation](https://expressjs.com/)
