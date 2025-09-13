@@ -80,13 +80,26 @@ def get_mcp():
     """Import paresseux de FastMCP - optimisé pour Lambda"""
     try:
         from mcp.server.fastmcp import FastMCP
+        from fastapi import Depends, HTTPException, status
+        from fastapi.security import OAuth2PasswordBearer
+        
+        # Configuration OAuth2 pour récupérer le token Bearer
+        oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+        
         # Configuration optimisée pour Lambda
-        return FastMCP(
+        mcp_instance = FastMCP(
             "Collective Brain Server", 
             port=3000, 
             stateless_http=True, 
             debug=False
         )
+        
+        # Ajouter une route FastAPI pour récupérer le token
+        @mcp_instance._app.get("/token")
+        async def get_token():
+            return {"access_token": "dummy", "token_type": "bearer"}
+        
+        return mcp_instance
     except ImportError:
         if not IS_LAMBDA:
             print("❌ FastMCP non disponible")
@@ -103,6 +116,26 @@ def set_request_headers(headers: dict):
 def get_request_headers() -> dict:
     """Récupérer les headers de la requête courante"""
     return current_request_headers
+
+def get_current_user_token(token: str = None):
+    """Récupérer le token utilisateur via OAuth2PasswordBearer"""
+    try:
+        if not token:
+            print("⚠️ Token non fourni")
+            return ""
+        
+        print(f"🔍 Token reçu via OAuth2: {token[:10]}...")
+        
+        # Nettoyer le token si nécessaire
+        if token.startswith("Bearer "):
+            token = token[7:]
+            print(f"🔍 Token nettoyé: {token[:10]}...")
+        
+        return token
+        
+    except Exception as e:
+        print(f"❌ Erreur récupération token OAuth2: {e}")
+        return ""
 
 def extract_token_from_context(ctx):
     """Extraire le token Bearer depuis le contexte FastMCP"""
@@ -539,19 +572,19 @@ def get_mcp_instance():
         mcp = get_mcp()
     return mcp
 
-# Outils MCP avec authentification via contexte FastMCP
+# Outils MCP avec authentification via OAuth2PasswordBearer
 def add_memory(
     content: str,
     tags: str = "",
     category: str = "general",
     visibility: str = "team",
-    ctx = None
+    token: str = None
 ) -> str:
     """Ajouter une mémoire au cerveau collectif avec authentification"""
     
-    # Récupérer le token depuis le contexte FastMCP
-    print("🔍 Récupération du token depuis le contexte FastMCP...")
-    user_token = extract_token_from_context(ctx)
+    # Récupérer le token via OAuth2PasswordBearer
+    print("🔍 Récupération du token via OAuth2PasswordBearer...")
+    user_token = get_current_user_token(token)
     
     # Fallback vers l'ancienne méthode
     if not user_token:
@@ -644,12 +677,12 @@ def add_memory(
 def search_memories(
     query: str,
     limit: int = 5,
-    ctx = None
+    token: str = None
 ) -> str:
     """Rechercher dans le cerveau collectif avec authentification"""
     
-    # Récupérer le token depuis le contexte FastMCP
-    user_token = extract_token_from_context(ctx)
+    # Récupérer le token via OAuth2PasswordBearer
+    user_token = get_current_user_token(token)
     
     # Fallback vers l'ancienne méthode
     if not user_token:
@@ -719,11 +752,11 @@ def search_memories(
         "team": team_id
     })
 
-def delete_memory(memory_id: str, ctx = None) -> str:
+def delete_memory(memory_id: str, token: str = None) -> str:
     """Supprimer une mémoire du cerveau collectif avec authentification"""
     
-    # Récupérer le token depuis le contexte FastMCP
-    user_token = extract_token_from_context(ctx)
+    # Récupérer le token via OAuth2PasswordBearer
+    user_token = get_current_user_token(token)
     
     # Fallback vers l'ancienne méthode
     if not user_token:
@@ -790,11 +823,11 @@ def delete_memory(memory_id: str, ctx = None) -> str:
         "message": f"Mémoire {memory_id} supprimée du cerveau collectif (mémoire)"
     })
 
-def list_memories(ctx = None) -> str:
+def list_memories(token: str = None) -> str:
     """Lister toutes les mémoires du cerveau collectif avec authentification"""
     
-    # Récupérer le token depuis le contexte FastMCP
-    user_token = extract_token_from_context(ctx)
+    # Récupérer le token via OAuth2PasswordBearer
+    user_token = get_current_user_token(token)
     
     # Fallback vers l'ancienne méthode
     if not user_token:
@@ -864,11 +897,11 @@ def list_memories(ctx = None) -> str:
         "team": team_id
     })
 
-def get_team_insights(ctx = None) -> str:
+def get_team_insights(token: str = None) -> str:
     """Obtenir des insights sur l'activité de l'équipe avec authentification"""
     
-    # Récupérer le token depuis le contexte FastMCP
-    user_token = extract_token_from_context(ctx)
+    # Récupérer le token via OAuth2PasswordBearer
+    user_token = get_current_user_token(token)
     
     # Fallback vers l'ancienne méthode
     if not user_token:
@@ -992,18 +1025,7 @@ def initialize_mcp():
         mcp = get_mcp()
         
         if mcp:
-            # Ajouter le middleware pour capturer les headers
-            try:
-                # FastMCP utilise uvicorn, on doit accéder à l'app FastAPI différemment
-                if hasattr(mcp, '_app') and mcp._app:
-                    mcp._app.middleware("http")(capture_headers_middleware)
-                    print("✅ Middleware headers ajouté")
-                else:
-                    print("⚠️ App FastAPI non accessible pour le middleware")
-            except Exception as e:
-                print(f"⚠️ Impossible d'ajouter le middleware: {e}")
-            
-            # Enregistrer les outils
+            # Enregistrer les outils avec OAuth2PasswordBearer
             mcp.tool(
                 title="Add Memory",
                 description="Ajouter une mémoire au cerveau collectif de l'équipe",
