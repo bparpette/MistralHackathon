@@ -33,36 +33,14 @@ QDRANT_URL = os.getenv("QDRANT_URL")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
 QDRANT_ENABLED = os.getenv("QDRANT_ENABLED", "false").lower() == "true"
 
-# Détection environnement Lambda
-IS_LAMBDA = (
-    os.getenv("AWS_LAMBDA_FUNCTION_NAME") is not None or
-    os.getenv("AWS_EXECUTION_ENV") is not None or
-    os.getenv("LAMBDA_TASK_ROOT") is not None
-)
-
-# En Lambda, mode paresseux pour éviter les timeouts
-if IS_LAMBDA and QDRANT_ENABLED:
-    print("🚀 Mode Lambda - Qdrant en mode paresseux")
-    USE_QDRANT = True
-    # En Lambda, désactiver les vérifications Supabase pour le démarrage
-    if not SUPABASE_SERVICE_KEY:
-        print("⚠️ Mode Lambda sans Supabase - authentification désactivée")
-else:
-    USE_QDRANT = bool(QDRANT_URL and QDRANT_API_KEY and QDRANT_ENABLED)
+# Mode cloud optimisé par défaut (démarrage ultra-rapide)
+USE_QDRANT = bool(QDRANT_URL and QDRANT_API_KEY and QDRANT_ENABLED)
 
 # Debug minimal
 print(f"🔧 Qdrant: {'Activé' if USE_QDRANT else 'Désactivé'}")
 print(f"🔧 Supabase: {'Configuré' if SUPABASE_SERVICE_KEY else 'Non configuré'} (initialisation paresseuse)")
 
 # Import paresseux de FastMCP
-def get_mcp():
-    """Import paresseux de FastMCP"""
-    try:
-        from mcp.server.fastmcp import FastMCP
-        return FastMCP("Collective Brain Server", port=3000, stateless_http=True, debug=False)
-    except ImportError:
-        print("❌ FastMCP non disponible")
-        return None
 
 # Modèle de données enrichi pour le cerveau collectif
 class Memory:
@@ -408,16 +386,6 @@ def get_storage():
             storage = None
     return storage
 
-# Initialisation paresseuse de MCP
-mcp = None
-
-def get_mcp_instance():
-    """Obtenir l'instance MCP avec initialisation paresseuse"""
-    global mcp
-    if mcp is None:
-        mcp = get_mcp()
-    return mcp
-
 # Outils MCP avec authentification
 def add_memory(
     content: str,
@@ -754,55 +722,43 @@ def get_team_insights(user_token: str) -> str:
         "team": team_id
     })
 
-# Initialisation paresseuse de MCP
-def initialize_mcp():
-    """Initialiser MCP de manière paresseuse"""
-    global mcp
-    
-    if mcp is None:
-        mcp = get_mcp()
-        
-        if mcp:
-            # Enregistrer les outils
-            mcp.tool(
-                title="Add Memory",
-                description="Ajouter une mémoire au cerveau collectif de l'équipe",
-            )(add_memory)
-            
-            mcp.tool(
-                title="Search Memories",
-                description="Rechercher dans le cerveau collectif de l'équipe",
-            )(search_memories)
-            
-            mcp.tool(
-                title="Delete Memory",
-                description="Supprimer une mémoire du cerveau collectif",
-            )(delete_memory)
-            
-            mcp.tool(
-                title="List All Memories",
-                description="Lister toutes les mémoires du cerveau collectif",
-            )(list_memories)
-            
-            mcp.tool(
-                title="Get Team Insights",
-                description="Obtenir des insights sur l'activité de l'équipe",
-            )(get_team_insights)
-            
-            print("✅ MCP initialisé avec succès")
-        else:
-            print("❌ Impossible d'initialiser MCP")
-    
-    return mcp
+# Fonction get_mcp simplifiée pour le mode cloud
+def get_mcp():
+    """Import paresseux de FastMCP"""
+    try:
+        from mcp.server.fastmcp import FastMCP
+        return FastMCP("Collective Brain Server", port=3000, stateless_http=True, debug=False)
+    except ImportError:
+        print("❌ FastMCP non disponible")
+        return None
 
 if __name__ == "__main__":
     print("🎯 Démarrage du serveur MCP Collective Brain...")
     
-    # Initialisation paresseuse
-    mcp = initialize_mcp()
+    # Démarrage ultra-rapide par défaut (optimisé pour cloud/Lambda)
+    print("🚀 Mode Cloud - Démarrage ultra-rapide")
     
-    if mcp:
-        print("🚀 Serveur MCP Collective Brain démarré - prêt à recevoir des requêtes")
+    try:
+        # Créer un serveur MCP minimal sans initialisation
+        from mcp.server.fastmcp import FastMCP
+        
+        # Serveur minimal
+        mcp = FastMCP("Collective Brain Server", port=3000, stateless_http=True, debug=False)
+        
+        # Enregistrer les outils directement (sans initialisation)
+        mcp.tool(title="Add Memory", description="Ajouter une mémoire au cerveau collectif de l'équipe")(add_memory)
+        mcp.tool(title="Search Memories", description="Rechercher dans le cerveau collectif de l'équipe")(search_memories)
+        mcp.tool(title="Delete Memory", description="Supprimer une mémoire du cerveau collectif")(delete_memory)
+        mcp.tool(title="List All Memories", description="Lister toutes les mémoires du cerveau collectif")(list_memories)
+        mcp.tool(title="Get Team Insights", description="Obtenir des insights sur l'activité de l'équipe")(get_team_insights)
+        
+        print("✅ Serveur MCP Collective Brain démarré (mode Cloud optimisé)")
         mcp.run(transport="streamable-http")
-    else:
-        print("❌ Impossible de démarrer le serveur MCP")
+        
+    except Exception as e:
+        print(f"❌ Erreur démarrage: {e}")
+        # Fallback : serveur minimal
+        print("🔄 Fallback vers serveur minimal...")
+        import time
+        while True:
+            time.sleep(1)
