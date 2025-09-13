@@ -104,8 +104,53 @@ def get_request_headers() -> dict:
     """Récupérer les headers de la requête courante"""
     return current_request_headers
 
+def extract_token_from_context(ctx):
+    """Extraire le token Bearer depuis le contexte FastMCP"""
+    try:
+        if not ctx:
+            print("⚠️ Contexte non fourni")
+            return ""
+        
+        print("🔍 Contexte FastMCP disponible")
+        
+        # Accéder aux headers via le contexte de requête
+        if hasattr(ctx, 'request_context') and ctx.request_context:
+            print("🔍 request_context disponible")
+            
+            if hasattr(ctx.request_context, 'request') and ctx.request_context.request:
+                request = ctx.request_context.request
+                print(f"🔍 Objet request: {type(request)}")
+                
+                # Essayer d'accéder aux headers
+                if hasattr(request, 'headers'):
+                    headers = request.headers
+                    print(f"🔍 Headers via request: {headers}")
+                    if 'authorization' in headers:
+                        auth_header = headers['authorization']
+                        if auth_header.startswith("Bearer "):
+                            token = auth_header[7:]
+                            print(f"✅ Token trouvé via contexte: {token[:10]}...")
+                            return token
+                
+                # Essayer d'accéder aux métadonnées
+                if hasattr(ctx.request_context, 'meta') and ctx.request_context.meta:
+                    meta = ctx.request_context.meta
+                    print(f"🔍 Métadonnées: {meta}")
+        
+        # Essayer d'accéder aux headers via l'app FastAPI
+        if hasattr(ctx, 'fastmcp') and hasattr(ctx.fastmcp, '_app'):
+            app = ctx.fastmcp._app
+            print(f"🔍 App FastAPI: {type(app)}")
+        
+        print("❌ Token non trouvé dans le contexte")
+        return ""
+        
+    except Exception as e:
+        print(f"❌ Erreur extraction token depuis contexte: {e}")
+        return ""
+
 def extract_token_from_headers():
-    """Extraire le token Bearer depuis les headers HTTP"""
+    """Extraire le token Bearer depuis les headers HTTP (fallback)"""
     try:
         # 1. Essayer de récupérer depuis les headers de la requête courante
         request_headers = get_request_headers()
@@ -494,18 +539,24 @@ def get_mcp_instance():
         mcp = get_mcp()
     return mcp
 
-# Outils MCP avec authentification manuelle
+# Outils MCP avec authentification via contexte FastMCP
 def add_memory(
     content: str,
     tags: str = "",
     category: str = "general",
-    visibility: str = "team"
+    visibility: str = "team",
+    ctx = None
 ) -> str:
     """Ajouter une mémoire au cerveau collectif avec authentification"""
     
-    # Récupérer le token depuis les headers
-    print("🔍 Récupération du token depuis les headers...")
-    user_token = extract_token_from_headers()
+    # Récupérer le token depuis le contexte FastMCP
+    print("🔍 Récupération du token depuis le contexte FastMCP...")
+    user_token = extract_token_from_context(ctx)
+    
+    # Fallback vers l'ancienne méthode
+    if not user_token:
+        print("🔍 Fallback vers extract_token_from_headers...")
+        user_token = extract_token_from_headers()
     
     # MODE TEST: Si aucun token trouvé, utiliser le token de test
     if not user_token:
@@ -592,12 +643,17 @@ def add_memory(
 
 def search_memories(
     query: str,
-    limit: int = 5
+    limit: int = 5,
+    ctx = None
 ) -> str:
     """Rechercher dans le cerveau collectif avec authentification"""
     
-    # Récupérer le token depuis les headers
-    user_token = extract_token_from_headers()
+    # Récupérer le token depuis le contexte FastMCP
+    user_token = extract_token_from_context(ctx)
+    
+    # Fallback vers l'ancienne méthode
+    if not user_token:
+        user_token = extract_token_from_headers()
     
     # MODE TEST: Si aucun token trouvé, utiliser le token de test
     if not user_token:
@@ -663,11 +719,15 @@ def search_memories(
         "team": team_id
     })
 
-def delete_memory(memory_id: str) -> str:
+def delete_memory(memory_id: str, ctx = None) -> str:
     """Supprimer une mémoire du cerveau collectif avec authentification"""
     
-    # Récupérer le token depuis les headers
-    user_token = extract_token_from_headers()
+    # Récupérer le token depuis le contexte FastMCP
+    user_token = extract_token_from_context(ctx)
+    
+    # Fallback vers l'ancienne méthode
+    if not user_token:
+        user_token = extract_token_from_headers()
     
     # MODE TEST: Si aucun token trouvé, utiliser le token de test
     if not user_token:
@@ -730,11 +790,15 @@ def delete_memory(memory_id: str) -> str:
         "message": f"Mémoire {memory_id} supprimée du cerveau collectif (mémoire)"
     })
 
-def list_memories() -> str:
+def list_memories(ctx = None) -> str:
     """Lister toutes les mémoires du cerveau collectif avec authentification"""
     
-    # Récupérer le token depuis les headers
-    user_token = extract_token_from_headers()
+    # Récupérer le token depuis le contexte FastMCP
+    user_token = extract_token_from_context(ctx)
+    
+    # Fallback vers l'ancienne méthode
+    if not user_token:
+        user_token = extract_token_from_headers()
     
     # MODE TEST: Si aucun token trouvé, utiliser le token de test
     if not user_token:
@@ -800,11 +864,15 @@ def list_memories() -> str:
         "team": team_id
     })
 
-def get_team_insights() -> str:
+def get_team_insights(ctx = None) -> str:
     """Obtenir des insights sur l'activité de l'équipe avec authentification"""
     
-    # Récupérer le token depuis les headers
-    user_token = extract_token_from_headers()
+    # Récupérer le token depuis le contexte FastMCP
+    user_token = extract_token_from_context(ctx)
+    
+    # Fallback vers l'ancienne méthode
+    if not user_token:
+        user_token = extract_token_from_headers()
     
     # MODE TEST: Si aucun token trouvé, utiliser le token de test
     if not user_token:
