@@ -58,22 +58,22 @@ memories: Dict[str, Memory] = {}
 
 # Import Qdrant si disponible (seulement si activé)
 QDRANT_AVAILABLE = False
+QdrantClient = None
+Distance = None
+VectorParams = None
+PointStruct = None
+
 if USE_QDRANT:
     try:
         from qdrant_client import QdrantClient
         from qdrant_client.models import Distance, VectorParams, PointStruct
         QDRANT_AVAILABLE = True
-        print(f"🔗 Qdrant configuré: {QDRANT_URL}")
+        print(f"🔗 Qdrant disponible: {QDRANT_URL}")
     except ImportError:
         QDRANT_AVAILABLE = False
         print("⚠️ Qdrant client non disponible, utilisation du stockage en mémoire")
 else:
     print("📝 Utilisation du stockage en mémoire (Qdrant désactivé)")
-    # En production, éviter complètement les imports Qdrant
-    QdrantClient = None
-    Distance = None
-    VectorParams = None
-    PointStruct = None
 
 def calculate_similarity(text1: str, text2: str) -> float:
     """Calcule la similarité entre deux textes"""
@@ -93,18 +93,28 @@ def generate_embedding(text: str) -> List[float]:
     return vector
 
 class QdrantStorage:
-    """Gestionnaire de stockage Qdrant"""
+    """Gestionnaire de stockage Qdrant avec lazy initialization"""
     
     def __init__(self):
         if not QDRANT_AVAILABLE:
             raise Exception("Qdrant non disponible")
         
-        self.client = QdrantClient(
-            url=QDRANT_URL,
-            api_key=QDRANT_API_KEY
-        )
+        # Lazy initialization - pas de connexion au démarrage
+        self.client = None
         self.collection_name = "shared_memories"
-        self._init_collection()
+        self._initialized = False
+    
+    def _ensure_connected(self):
+        """S'assurer que la connexion Qdrant est établie"""
+        if not self._initialized:
+            print("🔄 Connexion à Qdrant...")
+            self.client = QdrantClient(
+                url=QDRANT_URL,
+                api_key=QDRANT_API_KEY
+            )
+            self._init_collection()
+            self._initialized = True
+            print("✅ Qdrant connecté et initialisé")
     
     def _init_collection(self):
         """Initialiser la collection Qdrant"""
@@ -130,6 +140,9 @@ class QdrantStorage:
     def store_memory(self, memory: Memory, memory_id: str) -> str:
         """Stocker une mémoire dans Qdrant"""
         try:
+            # S'assurer que la connexion est établie
+            self._ensure_connected()
+            
             # Générer l'embedding
             embedding = generate_embedding(memory.content)
             
@@ -159,6 +172,9 @@ class QdrantStorage:
     def search_memories(self, query: str, limit: int = 5) -> List[Dict]:
         """Rechercher des mémoires dans Qdrant"""
         try:
+            # S'assurer que la connexion est établie
+            self._ensure_connected()
+            
             # Générer l'embedding de la requête
             query_embedding = generate_embedding(query)
             
@@ -189,6 +205,9 @@ class QdrantStorage:
     def delete_memory(self, memory_id: str) -> bool:
         """Supprimer une mémoire de Qdrant"""
         try:
+            # S'assurer que la connexion est établie
+            self._ensure_connected()
+            
             self.client.delete(
                 collection_name=self.collection_name,
                 points_selector=[memory_id]
@@ -201,6 +220,9 @@ class QdrantStorage:
     def list_memories(self) -> List[Dict]:
         """Lister toutes les mémoires de Qdrant"""
         try:
+            # S'assurer que la connexion est établie
+            self._ensure_connected()
+            
             # Récupérer tous les points
             points = self.client.scroll(
                 collection_name=self.collection_name,
