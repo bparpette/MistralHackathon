@@ -294,11 +294,11 @@ This project was developed during the **Mistral AI MCP Hackathon 2025** by the A
 
 ### Developers:
 
-**Baptiste Parpette** - Lead Developer
+**Baptiste Parpette**
 - LinkedIn: [baptiste-parpette](https://www.linkedin.com/in/baptiste-parpette/)
 - GitHub: [@Bparpette](https://github.com/bparpette)
 
-**Henri d'Aboville** - Co-developer
+**Henri d'Aboville**
 - LinkedIn: [henri-d-52bb1a383](https://www.linkedin.com/in/henri-d-52bb1a383/)
 
 ## License
