@@ -1,50 +1,74 @@
-# AtlasMCP - Collective Brain MCP Server
+# AtlasMCP - Your AI Second Brain
 
-**Système de mémoire collective multi-tenant** - Un cerveau partagé intelligent qui transforme chaque équipe en une organisation plus intelligente que la somme de ses parties.
+**Universal AI Memory System** - AtlasMCP allows any AI user to have a persistent, intelligent memory across all platforms, breaking down the barriers between AI tools and enabling true collaborative intelligence.
 
-## Concept Révolutionnaire
+## The Problem We Solve
 
-AtlasMCP permet à chaque membre d'équipe de :
-- **Stocker** des connaissances importantes (décisions, solutions, bugs, insights)
-- **Rechercher** sémantiquement dans la mémoire collective de l'équipe
-- **Partager** le contexte instantanément avec validation collaborative
-- **Analyser** les patterns et insights d'équipe en temps réel
+Today, each AI platform has its own closed memory system, and AIs can't share a common context. Users lose valuable information when switching between tools, and teams can't leverage collective knowledge effectively.
 
-## Fonctionnalités Implémentées
+## Our Solution
 
-### Outils MCP Opérationnels :
+AtlasMCP is what allows any AI user today to have a second brain. Every time they interact with an AI that has AtlasMCP enabled, all of their important data is automatically indexed into a vector database that acts like their extended memory.
 
-1. **`add_memory`** - Stockage intelligent de mémoires
-   - Contenu, catégorie, tags, visibilité (private/team/public)
-   - Détection automatique de l'importance et similarité
-   - Intégration Qdrant pour recherche vectorielle
-   - Authentification multi-tenant via Supabase
+This means that whether they're chatting on Mistral, coding with Cursors, or using any other AI tool, they now have one unified database containing all their context and history. With AtlasMCP, the barrier between AI platforms is gone. It's a real breakthrough in context management, giving every user a persistent, intelligent memory across platforms.
 
-2. **`search_memories`** - Recherche sémantique avancée
-   - Recherche par similarité de contenu avec embeddings
-   - Filtres par catégorie, visibilité et équipe
-   - Scoring par pertinence + confiance
-   - Respect des permissions granulaires
+## Key Features
 
-3. **`get_team_insights`** - Analytics d'équipe temps réel
-   - Top catégories et tags les plus utilisés
-   - Contributeurs les plus actifs
-   - Mémoires les plus consultées
-   - Métriques d'engagement par équipe
+### Personal Second Brain
+- **Automatic Indexing**: All important data from AI interactions is automatically stored
+- **Cross-Platform Memory**: Unified database accessible from any AI tool
+- **Semantic Search**: Find information using natural language queries
+- **Persistent Context**: Never lose important conversations or decisions
 
-4. **`delete_memory`** - Gestion des mémoires
-   - Suppression sécurisée avec vérification des permissions
-   - Nettoyage automatique des références
+### Team Collaboration
+- **Shared Knowledge Base**: Teams can access collective memory through our web app
+- **Multi-Tenant Architecture**: Secure isolation between teams and organizations
+- **Real-Time Analytics**: Track team knowledge patterns and engagement
+- **Granular Permissions**: Control access with private/team/public visibility levels
 
-5. **`list_memories`** - Exploration de la base de connaissances
-   - Liste paginée des mémoires d'équipe
-   - Filtrage par utilisateur et catégorie
+### MCP Tools Available
 
-## Architecture Technique
+1. **`add_memory`** - Store intelligent memories
+   - Content, category, tags, visibility (private/team/public)
+   - Automatic importance detection and similarity matching
+   - Qdrant vector database integration
+   - Multi-tenant authentication via Supabase
+
+2. **`search_memories`** - Advanced semantic search
+   - Content similarity search with embeddings
+   - Filters by category, visibility, and team
+   - Relevance + confidence scoring
+   - Granular permission respect
+
+3. **`get_team_insights`** - Real-time team analytics
+   - Top categories and most used tags
+   - Most active contributors
+   - Most accessed memories
+   - Team engagement metrics
+
+4. **`delete_memory`** - Memory management
+   - Secure deletion with permission verification
+   - Automatic reference cleanup
+
+5. **`list_memories`** - Knowledge base exploration
+   - Paginated team memory listing
+   - Filtering by user and category
+
+## Business Value
+
+### The Second Major Benefit: Team Collaboration
+
+We've built a standard database on Supabase with team workspaces. Through our web app, you can create a team and invite members. Everyone in that team gets access to the same collective memory.
+
+Imagine a startup: the CTO and CEO can both access not only the technical documentation, but also business-critical knowledge like the status of fundraising, VC conversations, and client feedback. Instead of scattered, personal silos of memory, the entire team gains a shared, living knowledge base, accessible from any AI tool connected to AtlasMCP.
+
+This is a revolution for how teams work with AI: personal second brains, and collective brains for organizations.
+
+## Technical Architecture
 
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   Le Chat A     │    │   Le Chat B      │    │   Le Chat C     │
+│   Mistral Chat  │    │   Cursor IDE     │    │   Other AI      │
 │   (CEO Alice)   │    │   (CTO Bob)      │    │   (CS Charlie)  │
 └─────────┬───────┘    └─────────┬────────┘    └─────────┬───────┘
           │                      │                       │
@@ -52,10 +76,10 @@ AtlasMCP permet à chaque membre d'équipe de :
                                  │
                     ┌─────────────▼─────────────┐
                     │      AtlasMCP Server      │
+                    │   - Universal Memory      │
                     │   - Multi-tenant Auth     │
-                    │   - Memory Management     │
                     │   - Semantic Search       │
-                    │   - Team Analytics        │
+                    │   - Team Collaboration    │
                     └─────────────┬─────────────┘
                                   │
                     ┌─────────────▼─────────────┐
@@ -66,95 +90,95 @@ AtlasMCP permet à chaque membre d'équipe de :
                     └───────────────────────────┘
 ```
 
-### Stack Technologique :
-- **Backend** : Python 3.13 + FastMCP + FastAPI
-- **Vector DB** : Qdrant (cloud + local fallback)
-- **Auth/DB** : Supabase (PostgreSQL + RLS)
-- **Deployment** : AWS Lambda + Alpic
-- **Frontend** : Next.js + TypeScript (webapp)
+### Technology Stack:
+- **Backend**: Python 3.13 + FastMCP + FastAPI
+- **Vector DB**: Qdrant (cloud + local fallback)
+- **Auth/DB**: Supabase (PostgreSQL + RLS)
+- **Deployment**: AWS Lambda + Alpic
+- **Frontend**: Next.js + TypeScript (webapp)
 
 ## Installation & Configuration
 
-### 1. **Installation locale**
+### 1. **Local Installation**
 ```bash
-# Cloner le projet
+# Clone the project
 git clone https://github.com/bparpette/MistralHackathon.git
 cd MistralHackathon
 
-# Installer les dépendances
+# Install dependencies
 uv sync
 
-# Configurer l'environnement
+# Configure environment
 cp example.env config.env
-# Éditer config.env avec vos clés API
+# Edit config.env with your API keys
 ```
 
-### 2. **Configuration requise**
+### 2. **Required Configuration**
 ```bash
-# Variables d'environnement obligatoires
+# Required environment variables
 QDRANT_URL=https://your-cluster.qdrant.io:6333
 QDRANT_API_KEY=your_qdrant_api_key
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_key
 ```
 
-### 3. **Déploiement automatique**
-- **Production** : Déploiement automatique via Alpic à chaque commit sur `main`
-- **URL** : https://mistralhackathonmcp-ee61017d.alpic.live/
-- **Configuration** : Clés API configurées directement sur la plateforme
+### 3. **Automatic Deployment**
+- **Production**: Automatic deployment via Alpic on every commit to `main`
+- **URL**: https://mistralhackathonmcp-ee61017d.alpic.live/
+- **Configuration**: API keys configured directly on the platform
 
-### 4. **Base de données Supabase**
+### 4. **Supabase Database**
 ```sql
--- Exécuter le schéma complet dans l'éditeur SQL Supabase
--- Voir webapp/supabase-schema.sql pour le schéma complet
+-- Execute the complete schema in Supabase SQL editor
+-- See webapp/supabase-schema.sql for the complete schema
 ```
 
-## Démonstration Killer
+## Demo Scenario
 
-### Scénario : "Startup AI - Bug critique résolu en 45 min au lieu de 2h"
+### "Startup AI - Critical Bug Resolved in 45 min instead of 2h"
 
 ```bash
-# Lancer le serveur local
+# Launch local server
 uv run main.py
 
-# Tester les outils MCP
-# Utiliser les 5 outils : add_memory, search_memories, get_team_insights, delete_memory, list_memories
+# Test MCP tools
+# Use the 5 tools: add_memory, search_memories, get_team_insights, delete_memory, list_memories
 ```
 
-**Impact mesuré :** 75% de réduction du temps de résolution grâce au partage d'information instantané !
+**Measured Impact:** 75% reduction in resolution time thanks to instant information sharing!
 
-### Workflow de démo :
-1. **CS reçoit plainte** → Stocke dans mémoire collective
-2. **CEO cherche contexte** → Trouve immédiatement l'impact business (500k€/an)
-3. **CTO debug** → Voit la priorité max instantanément
-4. **CTO résout** → Documente la solution
-5. **CS rassure client** → A tous les détails techniques
+### Demo Workflow:
+1. **CS receives complaint** → Stores in collective memory
+2. **CEO searches context** → Immediately finds business impact (500k€/year)
+3. **CTO debugs** → Sees maximum priority instantly
+4. **CTO resolves** → Documents the solution
+5. **CS reassures client** → Has all technical details
 
-## Cas d'Usage Concrets
+## Use Cases
 
-### 1. **Résolution de problèmes critiques**
-- **Avant** : 2h de recherche + coordination
-- **Après** : 45 min de résolution directe
-- **Gain** : 75% de réduction du temps
+### 1. **Critical Problem Resolution**
+- **Before**: 2h of research + coordination
+- **After**: 45 min of direct resolution
+- **Gain**: 75% time reduction
 
-### 2. **Prise de décisions éclairées**
-- Décisions documentées et traçables
-- Contexte historique accessible instantanément
-- Validation collaborative des informations
+### 2. **Informed Decision Making**
+- Documented and traceable decisions
+- Historical context instantly accessible
+- Collaborative information validation
 
-### 3. **Onboarding accéléré**
-- Nouveaux membres accèdent à l'historique complet
-- Connaissances préservées et organisées
-- Meilleures pratiques partagées automatiquement
+### 3. **Accelerated Onboarding**
+- New members access complete history
+- Preserved and organized knowledge
+- Best practices automatically shared
 
-### 4. **Analytics d'équipe**
-- Identification des experts par domaine
-- Patterns d'utilisation et d'engagement
-- Optimisation des processus internes
+### 4. **Team Analytics**
+- Expert identification by domain
+- Usage and engagement patterns
+- Internal process optimization
 
-## Configuration Avancée
+## Advanced Configuration
 
-### Variables d'environnement :
+### Environment Variables:
 ```bash
 # Qdrant (Vector Database)
 QDRANT_URL=https://your-cluster.qdrant.io:6333
@@ -174,63 +198,63 @@ AWS_LAMBDA_FUNCTION_NAME=your_function_name
 AWS_EXECUTION_ENV=AWS_Lambda_python3.13
 ```
 
-### Système de Permissions :
-- **`private`** - Seul le créateur peut voir
-- **`team`** - Tous les membres de l'équipe
-- **`public`** - Accessible à tous (avec authentification)
+### Permission System:
+- **`private`** - Only the creator can see
+- **`team`** - All team members
+- **`public`** - Accessible to all (with authentication)
 
-### Multi-tenant :
-- Isolation complète par équipe via `team_token`
-- Authentification via `user_token` unique
-- RLS (Row Level Security) sur toutes les tables
+### Multi-tenant:
+- Complete isolation by team via `team_token`
+- Authentication via unique `user_token`
+- RLS (Row Level Security) on all tables
 
-## Roadmap & Statut
+## Roadmap & Status
 
-### Phase 1 (MVP) - **COMPLÉTÉ**
-- [x] Serveur MCP multi-tenant opérationnel
-- [x] Stockage de mémoires avec Qdrant
-- [x] Recherche sémantique avancée
-- [x] Système de permissions granulaires
-- [x] Analytics d'équipe temps réel
-- [x] Authentification Supabase + RLS
-- [x] Déploiement automatique AWS Lambda
-- [x] Webapp Next.js + TypeScript
+### Phase 1 (MVP) - **COMPLETED**
+- [x] Multi-tenant MCP server operational
+- [x] Memory storage with Qdrant
+- [x] Advanced semantic search
+- [x] Granular permission system
+- [x] Real-time team analytics
+- [x] Supabase authentication + RLS
+- [x] Automatic AWS Lambda deployment
+- [x] Next.js + TypeScript webapp
 
-### Phase 2 (Production) - **EN COURS**
-- [x] Intégration Qdrant cloud opérationnelle
-- [x] Fallback mémoire robuste
-- [x] Déploiement Alpic automatisé
-- [ ] Dashboard web complet
-- [ ] API REST publique
-- [ ] Monitoring et alertes
+### Phase 2 (Production) - **IN PROGRESS**
+- [x] Operational Qdrant cloud integration
+- [x] Robust memory fallback
+- [x] Automated Alpic deployment
+- [ ] Complete web dashboard
+- [ ] Public REST API
+- [ ] Monitoring and alerts
 
-### Phase 3 (Évolution) - **PLANIFIÉ**
-- [ ] Knowledge graph automatique
-- [ ] Embeddings Mistral avancés
-- [ ] Multi-langue (FR/EN/ES)
-- [ ] Voice notes et transcription
-- [ ] Predictive insights IA
-- [ ] Intégrations tierces (Slack, Teams)
+### Phase 3 (Evolution) - **PLANNED**
+- [ ] Automatic knowledge graph
+- [ ] Advanced Mistral embeddings
+- [ ] Multi-language (EN/FR/ES)
+- [ ] Voice notes and transcription
+- [ ] AI predictive insights
+- [ ] Third-party integrations (Slack, Teams)
 
-## Avantages Concurrentiels
+## Competitive Advantages
 
-1. **Premier système de mémoire collective MCP** - Innovation technique unique
-2. **Multi-tenant natif** - Isolation complète par équipe avec RLS
-3. **Permissions granulaires** - Contrôle fin de l'accès (private/team/public)
-4. **Recherche sémantique avancée** - Trouve même avec des mots différents
-5. **Analytics temps réel** - Insights sur l'activité et l'engagement d'équipe
-6. **Performance optimisée** - Fallback robuste + déploiement Lambda
-7. **Écosystème MCP** - Compatible avec tous les clients MCP
-8. **Impact mesurable** - 75% de réduction du temps de résolution
+1. **First MCP collective memory system** - Unique technical innovation
+2. **Native multi-tenant** - Complete team isolation with RLS
+3. **Granular permissions** - Fine access control (private/team/public)
+4. **Advanced semantic search** - Finds information even with different words
+5. **Real-time analytics** - Insights on team activity and engagement
+6. **Optimized performance** - Robust fallback + Lambda deployment
+7. **MCP ecosystem** - Compatible with all MCP clients
+8. **Measurable impact** - 75% reduction in resolution time
 
-## Déploiement & URLs
+## Deployment & URLs
 
-### Production :
-- **Serveur MCP** : https://mistralhackathonmcp-ee61017d.alpic.live/
-- **Repository** : https://github.com/bparpette/MistralHackathon
-- **Webapp** : Next.js + TypeScript (dossier `webapp/`)
+### Production:
+- **MCP Server**: https://mistralhackathonmcp-ee61017d.alpic.live/
+- **Repository**: https://github.com/bparpette/MistralHackathon
+- **Webapp**: Next.js + TypeScript (folder `webapp/`)
 
-### Configuration MCP :
+### MCP Configuration:
 ```json
 {
   "mcpServers": {
@@ -244,43 +268,43 @@ AWS_EXECUTION_ENV=AWS_Lambda_python3.13
 }
 ```
 
-## Structure du Projet
+## Project Structure
 
 ```
 MistralHackathon/
-├── main.py                 # Serveur MCP principal
-├── pyproject.toml          # Dépendances Python
-├── config.env              # Configuration production
-├── example.env             # Template configuration
-├── webapp/                 # Frontend Next.js
-│   ├── src/app/           # Pages et API routes
-│   ├── supabase-schema.sql # Schéma DB complet
-│   └── package.json       # Dépendances frontend
+├── main.py                 # Main MCP server
+├── pyproject.toml          # Python dependencies
+├── config.env              # Production configuration
+├── example.env             # Configuration template
+├── webapp/                 # Next.js frontend
+│   ├── src/app/           # Pages and API routes
+│   ├── supabase-schema.sql # Complete DB schema
+│   └── package.json       # Frontend dependencies
 ├── doc/                   # Documentation
 │   ├── HACKATHON_SUMMARY.md
 │   ├── DEVELOPMENT_SUMMARY.md
 │   └── archi.md
-├── qdrant_storage/        # Données Qdrant locales
-└── LEGACY/               # Versions précédentes
+├── qdrant_storage/        # Local Qdrant data
+└── LEGACY/               # Previous versions
 ```
 
-## Équipe & Contribution
+## Team & Contribution
 
-Ce projet a été développé lors du **Mistral AI MCP Hackathon 2025** par l'équipe AtlasMCP.
+This project was developed during the **Mistral AI MCP Hackathon 2025** by the AtlasMCP team.
 
-### Développeurs :
+### Developers:
 
-**Baptiste Parpette** - Développeur principal
-- LinkedIn : [baptiste-parpette](https://www.linkedin.com/in/baptiste-parpette/)
-- GitHub : [@Bparpette](https://github.com/bparpette)
+**Baptiste Parpette** - Lead Developer
+- LinkedIn: [baptiste-parpette](https://www.linkedin.com/in/baptiste-parpette/)
+- GitHub: [@Bparpette](https://github.com/bparpette)
 
-**Henri d'Aboville** - Co-développeur
-- LinkedIn : [henri-d-52bb1a383](https://www.linkedin.com/in/henri-d-52bb1a383/)
+**Henri d'Aboville** - Co-developer
+- LinkedIn: [henri-d-52bb1a383](https://www.linkedin.com/in/henri-d-52bb1a383/)
 
-## Licence
+## License
 
-MIT License - Voir le fichier LICENSE pour plus de détails.
+MIT License - See LICENSE file for more details.
 
 ---
 
-**AtlasMCP - Transformez votre équipe en cerveau collectif intelligent !**
+**AtlasMCP - Transform your team into an intelligent collective brain!**
