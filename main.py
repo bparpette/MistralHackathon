@@ -782,76 +782,77 @@ def search_memories(
         "team": team_id
     })
 
-def delete_memory(memory_id: str, token: str = None) -> str:
-    """Supprimer une mémoire du cerveau collectif avec authentification"""
-    
-    # Récupérer le token via OAuth2PasswordBearer
-    user_token = get_current_user_token(token)
-    
-    # Fallback vers l'ancienne méthode
-    if not user_token:
-        user_token = extract_token_from_headers()
-    
-    # MODE TEST: Si aucun token trouvé, utiliser le token de test
-    if not user_token:
-        print("🧪 MODE TEST: Utilisation du token de test")
-        user_token = "user_d8a7996df3c777e9ac2914ef16d5b501"
-    
-    if not user_token:
-        return json.dumps({
-            "status": "error",
-            "message": "Token utilisateur requis. Veuillez configurer l'authentification Bearer dans Le Chat."
-        })
-    
-    # Vérifier le token utilisateur
-    user_info = verify_user_token(user_token)
-    if not user_info:
-        return json.dumps({
-            "status": "error",
-            "message": f"Token utilisateur invalide: {user_token[:10]}..."
-        })
-    
-    team_id = user_info["team_id"]
-    user_name = user_info["user_name"]
-    
-    storage = get_storage()
-    if storage:
-        try:
-            success = storage.delete_memory(memory_id, team_id)
-            if success:
-                return json.dumps({
-                    "status": "success",
-                    "message": f"Mémoire {memory_id} supprimée du cerveau collectif (Qdrant)"
-                })
-            else:
-                return json.dumps({
-                    "status": "error",
-                    "message": "Erreur lors de la suppression"
-                })
-        except Exception as e:
-            print(f"⚠️ Erreur Qdrant, fallback vers mémoire: {e}")
-    
-    # Utiliser le stockage en mémoire (fallback ou par défaut)
-    if memory_id not in memories:
-        return json.dumps({
-            "status": "error",
-            "message": "Mémoire non trouvée"
-        })
-    
-    # Vérifier que la mémoire appartient à l'équipe de l'utilisateur
-    memory = memories[memory_id]
-    if memory.team_id != team_id:
-        return json.dumps({
-            "status": "error",
-            "message": "Accès non autorisé à cette mémoire"
-        })
-    
-    del memories[memory_id]
-    
-    return json.dumps({
-        "status": "success",
-        "message": f"Mémoire {memory_id} supprimée du cerveau collectif (mémoire)"
-    })
+# TEMPORAIREMENT DÉSACTIVÉ POUR LA PRODUCTION
+# def delete_memory(memory_id: str, token: str = None) -> str:
+#     """Supprimer une mémoire du cerveau collectif avec authentification"""
+#     
+#     # Récupérer le token via OAuth2PasswordBearer
+#     user_token = get_current_user_token(token)
+#     
+#     # Fallback vers l'ancienne méthode
+#     if not user_token:
+#         user_token = extract_token_from_headers()
+#     
+#     # MODE TEST: Si aucun token trouvé, utiliser le token de test
+#     if not user_token:
+#         print("🧪 MODE TEST: Utilisation du token de test")
+#         user_token = "user_d8a7996df3c777e9ac2914ef16d5b501"
+#     
+#     if not user_token:
+#         return json.dumps({
+#             "status": "error",
+#             "message": "Token utilisateur requis. Veuillez configurer l'authentification Bearer dans Le Chat."
+#         })
+#     
+#     # Vérifier le token utilisateur
+#     user_info = verify_user_token(user_token)
+#     if not user_info:
+#         return json.dumps({
+#             "status": "error",
+#             "message": f"Token utilisateur invalide: {user_token[:10]}..."
+#         })
+#     
+#     team_id = user_info["team_id"]
+#     user_name = user_info["user_name"]
+#     
+#     storage = get_storage()
+#     if storage:
+#         try:
+#             success = storage.delete_memory(memory_id, team_id)
+#             if success:
+#                 return json.dumps({
+#                     "status": "success",
+#                     "message": f"Mémoire {memory_id} supprimée du cerveau collectif (Qdrant)"
+#                 })
+#             else:
+#                 return json.dumps({
+#                     "status": "error",
+#                     "message": "Erreur lors de la suppression"
+#                 })
+#         except Exception as e:
+#             print(f"⚠️ Erreur Qdrant, fallback vers mémoire: {e}")
+#     
+#     # Utiliser le stockage en mémoire (fallback ou par défaut)
+#     if memory_id not in memories:
+#         return json.dumps({
+#             "status": "error",
+#             "message": "Mémoire non trouvée"
+#         })
+#     
+#     # Vérifier que la mémoire appartient à l'équipe de l'utilisateur
+#     memory = memories[memory_id]
+#     if memory.team_id != team_id:
+#         return json.dumps({
+#             "status": "error",
+#             "message": "Accès non autorisé à cette mémoire"
+#         })
+#     
+#     del memories[memory_id]
+#     
+#     return json.dumps({
+#         "status": "success",
+#         "message": f"Mémoire {memory_id} supprimée du cerveau collectif (mémoire)"
+#     })
 
 def list_memories(token: str = None) -> str:
     """Lister toutes les mémoires du cerveau collectif avec authentification"""
@@ -1066,10 +1067,11 @@ def initialize_mcp():
                 description="Rechercher dans le cerveau collectif de l'équipe",
             )(search_memories)
             
-            mcp.tool(
-                title="Delete Memory",
-                description="Supprimer une mémoire du cerveau collectif",
-            )(delete_memory)
+            # TEMPORAIREMENT DÉSACTIVÉ POUR LA PRODUCTION
+            # mcp.tool(
+            #     title="Delete Memory",
+            #     description="Supprimer une mémoire du cerveau collectif",
+            # )(delete_memory)
             
             mcp.tool(
                 title="List All Memories",
