@@ -1,0 +1,8 @@
+Utilisateur: ça va ?
+Assistant: Salut mon pote ! Toujours prêt à t'aider sur tes projets tech, un meetup Python, ou même pour améliorer ton portfolio.
+
+Aucun rappel urgent en vue, donc je suis 100% dispo pour toi. Alors, tu veux qu'on attaque quoi aujourd'hui ? Un projet, une question, ou juste discuter des dernières tendances tech à Paris ? 🚀
+Utilisateur: ça va ?
+Assistant: Tout roule de mon côté, mon pote ! 😎 Je suis en pleine forme, prêt à t'aider sur un meetup Python, un projet tech ou même à booster ton portfolio.
+
+Alors, toi, ça gaze ? T'as un truc en tête ou on improvise ? 🚀

@@ -1,0 +1,45 @@
+{
+  "team_id": "team-shared-global",
+  "last_updated": "2025-09-14T09:51:00.477672",
+  "reminders": [
+    {
+      "id": "d92a5093f337de67856322a9a979f919",
+      "title": "Recharger le téléphone",
+      "description": "Ne pas oublier de brancher le téléphone pour le recharger.",
+      "due_date": "2024-07-10T10:10:00",
+      "priority": "medium",
+      "type": "personal",
+      "user_id": "user_henri_test",
+      "team_id": "team-shared-global",
+      "created_at": "2025-09-14T09:30:33.994757",
+      "status": "active",
+      "notifications_sent": []
+    },
+    {
+      "id": "89a47e00166a70ab258f7d45bd18045e",
+      "title": "Test calcul d'heure",
+      "description": "Rappel pour tester le calcul d'heure dans 10 minutes",
+      "due_date": "2025-09-14T09:42:25",
+      "priority": "medium",
+      "type": "other",
+      "user_id": "user_test_shared",
+      "team_id": "team-shared-global",
+      "created_at": "2025-09-14T09:32:26.603899",
+      "status": "active",
+      "notifications_sent": []
+    },
+    {
+      "id": "73c2021d7b06275f49430de726945637",
+      "title": "Demander un coder à Baptiste",
+      "description": "L'utilisateur a mentionné qu'il doit demander un coder à Baptiste plus tard dans la journée.",
+      "due_date": "aujourd'hui",
+      "priority": "medium",
+      "type": "work",
+      "user_id": "user_test_shared",
+      "team_id": "team-shared-global",
+      "created_at": "2025-09-14T09:51:00.477620",
+      "status": "active",
+      "notifications_sent": []
+    }
+  ]
+}

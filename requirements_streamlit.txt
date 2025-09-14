@@ -1,0 +1,10 @@
+# Requirements pour l'interface Streamlit
+streamlit>=1.28.0
+pandas>=1.5.0
+plotly>=5.0.0
+
+# Dépendances existantes
+mistralai>=1.0.0
+qdrant-client>=1.6.0
+requests>=2.28.0
+python-dotenv>=1.0.0

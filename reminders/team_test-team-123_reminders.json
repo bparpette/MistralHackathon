@@ -1,0 +1,32 @@
+{
+  "team_id": "test-team-123",
+  "last_updated": "2025-09-14T09:17:19.980789",
+  "reminders": [
+    {
+      "id": "6f05242f9e1dd74b4fc8fab5901a4880",
+      "title": "Recharger le téléphone",
+      "description": "Rappel pour recharger le téléphone",
+      "due_date": "2025-09-14T09:26:31",
+      "priority": "medium",
+      "type": "personal",
+      "user_id": "user_d8a7996df3c777e9ac2914ef16d5b501",
+      "team_id": "test-team-123",
+      "created_at": "2025-09-14T09:16:32.197943",
+      "status": "active",
+      "notifications_sent": []
+    },
+    {
+      "id": "5c0dab4fec7dd1792a775d1755bd6667",
+      "title": "Recharger le téléphone",
+      "description": "Rappel pour recharger le téléphone dans 10 minutes",
+      "due_date": "2025-09-14T09:27:18",
+      "priority": "medium",
+      "type": "personal",
+      "user_id": "user_d8a7996df3c777e9ac2914ef16d5b501",
+      "team_id": "test-team-123",
+      "created_at": "2025-09-14T09:17:19.980729",
+      "status": "active",
+      "notifications_sent": []
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "user_id": "user_henri_test",
+  "created_at": "2025-09-14T08:26:26.176414",
+  "updated_at": "2025-09-14T10:23:57.814053",
+  "profile": {
+    "name": "Henri",
+    "preferences": [
+      "Python"
+    ],
+    "communication_style": "professional",
+    "interests": [],
+    "goals": [],
+    "programming_languages": [
+      "Python"
+    ],
+    "age": 18,
+    "location": "Paris"
+  },
+  "rules": {
+    "response_patterns": {},
+    "topics_to_avoid": [],
+    "preferred_topics": [],
+    "special_instructions": []
+  },
+  "context": {
+    "current_projects": [],
+    "recent_activities": [],
+    "important_notes": [],
+    "relationships": {}
+  },
+  "events": {
+    "upcoming": [
+      "Rappel personnalisé"
+    ],
+    "completed": [],
+    "recurring": []
+  },
+  "reminders": {
+    "active": [],
+    "completed": [],
+    "snoozed": []
+  },
+  "learning": {
+    "topics_learned": [],
+    "skills_developed": [],
+    "knowledge_gaps": []
+  }
+}

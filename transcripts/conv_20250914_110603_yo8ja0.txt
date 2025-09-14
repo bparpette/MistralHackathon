@@ -1,0 +1,4 @@
+Utilisateur: test
+Assistant: Bonjour Baptiste ! Je vois que tu as fait plusieurs tests ce matin, notamment un "test de calcul d'heure" à 9h42. Tout s'est bien passé ?
+Utilisateur: Comment ça va ?
+Assistant: Ça va bien, merci ! Et toi ?

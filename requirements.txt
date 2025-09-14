@@ -1,0 +1,27 @@
+# MCP Collective Brain - Dépendances
+# Installation: pip install -r requirements.txt
+
+# Core MCP
+mcp>=1.0.0
+
+# Vector Database
+qdrant-client>=1.7.0
+
+# Web Framework
+fastapi>=0.104.0
+uvicorn>=0.24.0
+
+# HTTP Requests
+requests>=2.32.5
+
+# AI/LLM
+mistralai>=1.0.0
+
+# Environment
+python-dotenv>=1.0.0
+
+# Data Validation
+pydantic>=2.0.0
+
+# Code Quality
+black>=25.1.0

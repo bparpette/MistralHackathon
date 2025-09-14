@@ -1,0 +1,10 @@
+Utilisateur: salut
+Assistant: Salut mon pote ! 😄
+
+Alors, toujours à Paris et prêt à enflammer les meetups Python ou à bosser sur un projet tech ? Ou peut-être que t’as envie de parler portfolio, tendances tech, ou même d’improviser un truc fun ?
+
+*(Et si t’as envie de tester : dis "quoi" et je te réponds "FEUR !" — c’est notre running gag maintenant 😉)*
+
+T’as un truc en tête ou on part sur un brainstorming spontané ? 🚀
+
+*(PS : Toujours aucun rappel urgent, t’es tranquille !)*

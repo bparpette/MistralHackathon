@@ -1,0 +1,39 @@
+{
+  "user_id": "user_test",
+  "created_at": "2025-09-14T09:56:08.702936",
+  "updated_at": "2025-09-14T09:56:08.702961",
+  "profile": {
+    "name": "",
+    "preferences": [],
+    "communication_style": "professional",
+    "interests": [],
+    "goals": []
+  },
+  "rules": {
+    "response_patterns": {},
+    "topics_to_avoid": [],
+    "preferred_topics": [],
+    "special_instructions": []
+  },
+  "context": {
+    "current_projects": [],
+    "recent_activities": [],
+    "important_notes": [],
+    "relationships": {}
+  },
+  "events": {
+    "upcoming": [],
+    "completed": [],
+    "recurring": []
+  },
+  "reminders": {
+    "active": [],
+    "completed": [],
+    "snoozed": []
+  },
+  "learning": {
+    "topics_learned": [],
+    "skills_developed": [],
+    "knowledge_gaps": []
+  }
+}
